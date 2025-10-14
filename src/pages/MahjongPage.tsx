@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MahjongTile, MAHJONG_TILES, createEmptyWall } from '../types/mahjong'
+import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '../types/mahjong'
+import MahjongTileComponent from '../components/MahjongTile'
 
-type Suit = MahjongTile['suit']
+type Suit = MahjongTileType['suit']
 type SimpleTile = { suit: Suit; value: number }
 
-const keyOf = (t: SimpleTile | MahjongTile) => `${t.suit}-${t.value}`
+const keyOf = (t: SimpleTile | MahjongTileType) => `${t.suit}-${t.value}`
 
 const countMap = (tiles: SimpleTile[]) => {
   const m = new Map<string, number>()
@@ -134,11 +135,11 @@ const canFormStandardWin = (tiles14: SimpleTile[]) => {
 const MahjongPage: React.FC = () => {
   const navigate = useNavigate()
   const [wall, setWall] = useState(createEmptyWall())
-  const [selectedTiles, setSelectedTiles] = useState<MahjongTile[]>([])
+  const [selectedTiles, setSelectedTiles] = useState<MahjongTileType[]>([])
   const [message, setMessage] = useState<string | null>(null)
 
   // 当前是否允许添加：整体容量、最多两个花色、单牌最多4张
-  const canAddTile = (tile: MahjongTile) => {
+  const canAddTile = (tile: MahjongTileType) => {
     if (selectedTiles.length >= 14) return false
 
     // 单牌最多4张
@@ -154,7 +155,7 @@ const MahjongPage: React.FC = () => {
     return true
   }
 
-  const addTileToWall = (tile: MahjongTile) => {
+  const addTileToWall = (tile: MahjongTileType) => {
     setMessage(null)
     if (selectedTiles.length >= 14) return
 
@@ -177,7 +178,7 @@ const MahjongPage: React.FC = () => {
       newWall.tiles[emptySlotIndex] = tile
       setWall(newWall)
       // 同步 selectedTiles 来自墙
-      const newSelected = newWall.tiles.filter(Boolean) as MahjongTile[]
+      const newSelected = newWall.tiles.filter(Boolean) as MahjongTileType[]
       setSelectedTiles(newSelected)
     }
   }
@@ -187,8 +188,14 @@ const MahjongPage: React.FC = () => {
     newWall.tiles[index] = null
     setWall(newWall)
     // 移除后用墙重建 selectedTiles，避免按 id 误删全部同牌
-    const newSelected = newWall.tiles.filter(Boolean) as MahjongTile[]
+    const newSelected = newWall.tiles.filter(Boolean) as MahjongTileType[]
     setSelectedTiles(newSelected)
+    setMessage(null)
+  }
+
+  const clearWall = () => {
+    setWall(createEmptyWall())
+    setSelectedTiles([])
     setMessage(null)
   }
 
@@ -219,7 +226,7 @@ const MahjongPage: React.FC = () => {
         return std.win
       })
       // 去重（同一张牌只保留一个）
-      .reduce((acc: MahjongTile[], t) => {
+      .reduce((acc: MahjongTileType[], t) => {
         if (!acc.find(x => keyOf(x) === keyOf(t))) acc.push(t)
         return acc
       }, [])
@@ -274,18 +281,24 @@ const MahjongPage: React.FC = () => {
 
         {/* 牌墙区域 */}
         <div className="mb-12">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-700">牌墙 (14张)</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold text-gray-700">牌墙 (14张)</h2>
+            <button
+              onClick={clearWall}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow-md transition-colors"
+            >
+              一键清理
+            </button>
+          </div>
           <div className="grid grid-cols-7 md:grid-cols-14 gap-2 bg-green-100 p-6 rounded-2xl shadow-lg">
             {wall.tiles.map((tile, index) => (
-              <div
+              <MahjongTileComponent
                 key={index}
-                className={`aspect-[3/4] flex items-center justify-center text-4xl bg-white rounded-lg shadow-md border-2 ${
-                  tile ? 'border-green-500' : 'border-dashed border-gray-300'
-                } ${isWallFull ? 'animate-pulse' : ''}`}
+                tile={tile}
                 onClick={() => tile && removeTileFromWall(index)}
-              >
-                {tile ? tile.unicode : ``}
-              </div>
+                size="large"
+                variant="wall"
+              />
             ))}
           </div>
 
@@ -304,15 +317,12 @@ const MahjongPage: React.FC = () => {
               {!isWallFull && tingCandidates.length > 0 && (
                 <div className="grid grid-cols-9 md:grid-cols-14 gap-2 justify-center">
                   {tingCandidates.map(t => (
-                    <div
+                    <MahjongTileComponent
                       key={t.id}
-                      className={`aspect-[3/4] flex items-center justify-center text-3xl text-gray-800 bg-white rounded-lg shadow-md border-2 ${
-                        'border-blue-400'
-                      }`}
-                      title={`${t.suit}-${t.value}`}
-                    >
-                      {t.unicode}
-                    </div>
+                      tile={t}
+                      size="small"
+                      variant="ting"
+                    />
                   ))}
                 </div>
               )}
@@ -331,14 +341,14 @@ const MahjongPage: React.FC = () => {
                 {MAHJONG_TILES.filter(tile => tile.suit === 'characters').map(tile => {
                   const disabled = !canAddTile(tile) || !canAddMore
                   return (
-                    <button
+                    <MahjongTileComponent
                       key={tile.id}
+                      tile={tile}
                       onClick={() => !disabled && addTileToWall(tile)}
                       disabled={disabled}
-                      className="aspect-[3/4] text-3xl bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md transition-colors"
-                    >
-                      {tile.unicode}
-                    </button>
+                      size="medium"
+                      variant="selector"
+                    />
                   )
                 })}
               </div>
@@ -351,14 +361,14 @@ const MahjongPage: React.FC = () => {
                 {MAHJONG_TILES.filter(tile => tile.suit === 'dots').map(tile => {
                   const disabled = !canAddTile(tile) || !canAddMore
                   return (
-                    <button
+                    <MahjongTileComponent
                       key={tile.id}
+                      tile={tile}
                       onClick={() => !disabled && addTileToWall(tile)}
                       disabled={disabled}
-                      className="aspect-[3/4] text-3xl bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md transition-colors"
-                    >
-                      {tile.unicode}
-                    </button>
+                      size="medium"
+                      variant="selector"
+                    />
                   )
                 })}
               </div>
@@ -371,14 +381,14 @@ const MahjongPage: React.FC = () => {
                 {MAHJONG_TILES.filter(tile => tile.suit === 'bamboos').map(tile => {
                   const disabled = !canAddTile(tile) || !canAddMore
                   return (
-                    <button
+                    <MahjongTileComponent
                       key={tile.id}
+                      tile={tile}
                       onClick={() => !disabled && addTileToWall(tile)}
                       disabled={disabled}
-                      className="aspect-[3/4] text-3xl bg-green-100 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md transition-colors"
-                    >
-                      {tile.unicode}
-                    </button>
+                      size="medium"
+                      variant="selector"
+                    />
                   )
                 })}
               </div>

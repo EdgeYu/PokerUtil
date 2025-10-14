@@ -21,7 +21,6 @@ const HomePage: React.FC = () => {
           <div className="flex flex-col items-center">
             <span className="text-6xl mb-4">🀄</span>
             <span className="text-2xl font-semibold">麻将</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
           </div>
         </button>
 
@@ -33,7 +32,6 @@ const HomePage: React.FC = () => {
           <div className="flex flex-col items-center">
             <span className="text-6xl mb-4">♠️♥️♣️♦️</span>
             <span className="text-2xl font-semibold">德州扑克</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
           </div>
         </button>
       </div>
