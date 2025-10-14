@@ -1,5 +1,0 @@
-name = "mahjong-poker-app"
-compatibility_date = "2025-01-15"
-pages_build_output_dir = "./dist"
-
-[env.production]
