@@ -161,7 +161,6 @@ const PokerAnalyzerPage: React.FC = () => {
                 currentBestCards = combination
             }
         })
-        console.log('current best hand: ', currentBestHandType, currentBestScore, currentBestCards);
 
 
         setCurrentBestHand(currentBestHandType)
@@ -583,7 +582,6 @@ const PokerAnalyzerPage: React.FC = () => {
                 communityCard.rank === card.rank && communityCard.suit === card.suit
             )
         )
-        console.log("remainingCards:", remainingCards, "holeCards:", holeCards, "communityCards:", communityCards);
 
         let winCount = 0      // 当前牌型能赢的组合数
         let totalPossibleHands = 0
