@@ -83,6 +83,7 @@ const PokerAnalyzerPage: React.FC = () => {
     const [currentBestHandCards, setCurrentBestHandCards] = useState<PokerCard[]>([])
     const [futureBestHand, setFutureBestHand] = useState<string>('')
     const [futureBestHandCards, setFutureBestHandCards] = useState<PokerCard[]>([])
+    const [currentWinRate, setCurrentWinRate] = useState<string>('0.0')
 
     const addHoleCard = (card: PokerCard) => {
         if (holeCards.length < 2 && !isCardSelected(card)) {
@@ -153,7 +154,7 @@ const PokerAnalyzerPage: React.FC = () => {
 
         currentCombinations.forEach(combination => {
             const handType = calculateHandStrength(combination)
-            const score = getHandScore(handType, combination)
+            const score = getDetailedHandScore(handType, combination)
             if (score > currentBestScore) {
                 currentBestScore = score
                 currentBestHandType = handType
@@ -161,10 +162,16 @@ const PokerAnalyzerPage: React.FC = () => {
             }
         })
         console.log('current best hand: ', currentBestHandType, currentBestScore, currentBestCards);
-        
+
 
         setCurrentBestHand(currentBestHandType)
         setCurrentBestHandCards(currentBestCards)
+
+        // 计算胜率：当前牌型在所有可能组合中的相对排名
+        const winRate = calculateCurrentWinRate(holeCards, communityCards, currentBestScore)
+        setCurrentWinRate(winRate)
+        setAnalysisResult(`当前最大牌型: ${currentBestHandType}
+胜率: ${winRate}%`)
 
         // 只有当公牌未完全出现时计算未来最大牌型
         if (communityCards.length < 5) {
@@ -184,12 +191,12 @@ const PokerAnalyzerPage: React.FC = () => {
             // 如果当前手牌和公牌已经是最佳牌型，直接使用当前最佳
             const currentBest = getBestHand([...holeCards, ...communityCards])
             const currentScore = getDetailedHandScore(calculateHandStrength(currentBest.cards), currentBest.cards)
-            
+
             // 检查是否需要寻找更好的未来牌型
             if (currentScore < 10000000) { // 如果不是皇家同花顺，继续寻找
                 // 模拟所有可能的未来牌组合
                 const futureCombinations = getAllCombinations(remainingCards, unknownCardCount)
-                
+
                 for (const futureCards of futureCombinations) {
                     const futureCommunityCards = [...communityCards, ...futureCards]
                     const allFutureCards = [...holeCards, ...futureCommunityCards]
@@ -223,30 +230,53 @@ const PokerAnalyzerPage: React.FC = () => {
             setFutureBestHandCards([])
         }
 
-        // 计算对手可能的最大牌型（考虑对手手牌中的未出现牌）
+        /**
+         * 计算对手可能的最大牌型（考虑对手手牌中的未出现牌）
+         * 
+         * 功能说明：
+         * 1. 从剩余牌堆中排除已出现的手牌和公牌
+         * 2. 遍历所有可能的对手手牌组合（C(n,2)）
+         * 3. 对每个对手手牌组合，计算其与公牌组成的最佳5张牌组合
+         * 4. 使用改进的同牌型比较逻辑（getDetailedHandScore）进行精确比较
+         * 5. 找出所有可能对手组合中的最强牌型
+         * 
+         * 算法流程：
+         * - 剩余牌堆 = 总牌堆 - 手牌 - 公牌
+         * - 对手手牌组合 = 从剩余牌堆中任选2张
+         * - 对手牌型 = 对手手牌 + 公牌 组成的最佳5张牌组合
+         * - 比较所有对手牌型，找出最强的一个
+         */
         let bestHandType = ''
         let bestHandCards: PokerCard[] = []
         let bestScore = -1
 
+        // 构建剩余牌堆：排除已出现的手牌和公牌
         const remainingCards = POKER_CARDS.filter(card =>
-            !isCardSelected(card) && !holeCards.some(holeCard =>
+            !isCardSelected(card) &&
+            !holeCards.some(holeCard =>
                 holeCard.rank === card.rank && holeCard.suit === card.suit
+            ) &&
+            !communityCards.some(communityCard =>
+                communityCard.rank === card.rank && communityCard.suit === card.suit
             )
         )
 
-        // 改进的同牌型比较逻辑
+        // 遍历所有可能的对手手牌组合
         for (let i = 0; i < remainingCards.length; i++) {
             for (let j = i + 1; j < remainingCards.length; j++) {
                 const opponentHoleCards = [remainingCards[i], remainingCards[j]]
                 const allCards = [...communityCards, ...opponentHoleCards]
 
+                // 确保有足够的牌组成5张牌组合
                 if (allCards.length >= 5) {
                     const combinations = getAllCombinations(allCards, 5)
 
+                    // 计算对手可能的最佳牌型
                     combinations.forEach(combination => {
                         const handType = calculateHandStrength(combination)
                         const score = getDetailedHandScore(handType, combination)
 
+                        // 更新最佳牌型记录
                         if (score > bestScore) {
                             bestScore = score
                             bestHandType = handType
@@ -307,7 +337,7 @@ const PokerAnalyzerPage: React.FC = () => {
 
         const baseScore = scores[handType] || 0
         const sortedValues = cards.map(card => card.value).sort((a, b) => b - a)
-        
+
         // 对于同牌型，需要逐个比较所有牌值
         let detailedScore = 0
         for (let i = 0; i < sortedValues.length; i++) {
@@ -364,8 +394,8 @@ const PokerAnalyzerPage: React.FC = () => {
             return baseScore + threeValue * 10000 + twoValue * 100
         } else if (handType === '同花') {
             // 同花：按牌值从大到小比较
-            return baseScore + sortedValues[0] * 10000 + sortedValues[1] * 1000 + 
-                   sortedValues[2] * 100 + sortedValues[3] * 10 + sortedValues[4]
+            return baseScore + sortedValues[0] * 10000 + sortedValues[1] * 1000 +
+                sortedValues[2] * 100 + sortedValues[3] * 10 + sortedValues[4]
         } else if (handType === '顺子') {
             // 顺子：比较最高牌值（注意A-5顺子）
             let highCard = sortedValues[0]
@@ -392,12 +422,12 @@ const PokerAnalyzerPage: React.FC = () => {
             // 一对：比较对子值，再比较剩余三张牌
             const pairValue = Array.from(valueCounts.entries()).find(([_, count]) => count === 2)?.[0] || 0
             const kickers = sortedValues.filter(value => value !== pairValue).sort((a, b) => b - a)
-            return baseScore + pairValue * 10000 + (kickers[0] || 0) * 1000 + 
-                   (kickers[1] || 0) * 100 + (kickers[2] || 0) * 10
+            return baseScore + pairValue * 10000 + (kickers[0] || 0) * 1000 +
+                (kickers[1] || 0) * 100 + (kickers[2] || 0) * 10
         } else {
             // 高牌：按牌值从大到小比较
-            return baseScore + sortedValues[0] * 10000 + sortedValues[1] * 1000 + 
-                   sortedValues[2] * 100 + sortedValues[3] * 10 + sortedValues[4]
+            return baseScore + sortedValues[0] * 10000 + sortedValues[1] * 1000 +
+                sortedValues[2] * 100 + sortedValues[3] * 10 + sortedValues[4]
         }
     }
 
@@ -539,6 +569,58 @@ const PokerAnalyzerPage: React.FC = () => {
         })
 
         return { cards: bestHand, score: bestScore }
+    }
+
+    // 计算当前牌型在所有可能组合中的胜率（简化版）
+    const calculateCurrentWinRate = (holeCards: PokerCard[], communityCards: PokerCard[], currentBestScore: number): string => {
+        // 排除已出现的手牌和公牌，得到剩余牌堆
+        const remainingCards = POKER_CARDS.filter(card =>
+            !isCardSelected(card) &&
+            !holeCards.some(holeCard =>
+                holeCard.rank === card.rank && holeCard.suit === card.suit
+            ) &&
+            !communityCards.some(communityCard =>
+                communityCard.rank === card.rank && communityCard.suit === card.suit
+            )
+        )
+        console.log("remainingCards:", remainingCards, "holeCards:", holeCards, "communityCards:", communityCards);
+
+        let winCount = 0      // 当前牌型能赢的组合数
+        let totalPossibleHands = 0
+
+        // 计算所有可能的对手手牌组合
+        for (let i = 0; i < remainingCards.length; i++) {
+            for (let j = i + 1; j < remainingCards.length; j++) {
+                const opponentCards = [remainingCards[i], remainingCards[j]]
+                const allCards = [...communityCards, ...opponentCards]
+
+                if (allCards.length >= 5) {
+                    // 计算对手可能的最大牌型分数
+                    const combinations = getAllCombinations(allCards, 5)
+                    let opponentBestScore = -1
+
+                    combinations.forEach(combination => {
+                        const handType = calculateHandStrength(combination)
+                        const score = getDetailedHandScore(handType, combination)
+                        if (score > opponentBestScore) {
+                            opponentBestScore = score
+                        }
+                    })
+
+                    // 比较当前牌型与对手牌型
+                    if (opponentBestScore < currentBestScore) {
+                        winCount++        // 当前牌型更强
+                    }
+                    totalPossibleHands++
+                }
+            }
+        }
+
+        if (totalPossibleHands === 0) return '100.0'
+
+        // 胜率公式：赢牌数 / 剩余牌总数
+        const winRate = (winCount / totalPossibleHands * 100).toFixed(1)
+        return winRate
     }
 
 
@@ -690,6 +772,12 @@ const PokerAnalyzerPage: React.FC = () => {
                         <div className="bg-white p-4 rounded-2xl shadow-lg">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-semibold text-blue-600">手牌 (2张)</h2>
+                                {/* 胜率显示 - 只在手牌完整且公牌足够时显示 */}
+                                {holeCards.length === 2 && communityCards.length >= 3 && currentBestHand && currentBestHand !== '等待更多公牌...' && (
+                                    <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
+                                        胜率: {currentWinRate}%
+                                    </div>
+                                )}
                             </div>
                             <div className="flex space-x-3 mb-4">
                                 {holeCards.map((card, index) => (
@@ -765,7 +853,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                 {holeCards.length === 2 && communityCards.length >= 3 && communityCards.length < 5 && futureBestHand && futureBestHand !== '所有公牌已出现，未来最大牌型无意义' && (
                                     <div className="p-3 bg-purple-50 rounded-lg">
                                         <div className="text-sm text-purple-700 font-medium mb-2">我未来的最大牌型: {futureBestHand}</div>
-                                        <div className="text-xs text-purple-500 mb-2">（考虑未出现的转牌{communityCards.length==4? '' : '和河牌'}）</div>
+                                        <div className="text-xs text-purple-500 mb-2">（考虑未出现的转牌{communityCards.length == 4 ? '' : '和河牌'}）</div>
                                         <div className="flex space-x-2">
                                             {futureBestHandCards.map((card, index) => (
                                                 <div key={index} className={`

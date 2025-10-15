@@ -1,4 +1,4 @@
-# 扑克牌型分析工具 (Poker Hand Analyzer)
+# 扑克牌型分析工具 (poker-rutil)
 
 一个基于React + TypeScript开发的德州扑克牌型分析工具，能够实时分析扑克牌型、计算胜率，并提供详细的牌型比较功能。
 
@@ -26,7 +26,7 @@
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd poker-analyzer
+cd poker-rutil
 
 # 安装依赖
 npm install
