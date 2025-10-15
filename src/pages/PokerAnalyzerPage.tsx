@@ -160,6 +160,8 @@ const PokerAnalyzerPage: React.FC = () => {
                 currentBestCards = combination
             }
         })
+        console.log('current best hand: ', currentBestHandType, currentBestScore, currentBestCards);
+        
 
         setCurrentBestHand(currentBestHandType)
         setCurrentBestHandCards(currentBestCards)
@@ -304,9 +306,15 @@ const PokerAnalyzerPage: React.FC = () => {
         }
 
         const baseScore = scores[handType] || 0
-        const highCard = Math.max(...cards.map(card => card.value))
+        const sortedValues = cards.map(card => card.value).sort((a, b) => b - a)
+        
+        // 对于同牌型，需要逐个比较所有牌值
+        let detailedScore = 0
+        for (let i = 0; i < sortedValues.length; i++) {
+            detailedScore += sortedValues[i] * Math.pow(10, 4 - i)
+        }
 
-        return baseScore * 100 + highCard
+        return baseScore * 100000 + detailedScore
     }
 
     const getDetailedHandScore = (handType: string, cards: PokerCard[]): number => {
