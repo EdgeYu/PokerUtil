@@ -757,7 +757,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                 {holeCards.length === 2 && communityCards.length >= 3 && communityCards.length < 5 && futureBestHand && futureBestHand !== '所有公牌已出现，未来最大牌型无意义' && (
                                     <div className="p-3 bg-purple-50 rounded-lg">
                                         <div className="text-sm text-purple-700 font-medium mb-2">我未来的最大牌型: {futureBestHand}</div>
-                                        <div className="text-xs text-purple-500 mb-2">（考虑未出现的河牌）</div>
+                                        <div className="text-xs text-purple-500 mb-2">（考虑未出现的转牌{communityCards.length==4? '' : '和河牌'}）</div>
                                         <div className="flex space-x-2">
                                             {futureBestHandCards.map((card, index) => (
                                                 <div key={index} className={`
