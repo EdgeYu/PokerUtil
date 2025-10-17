@@ -14,7 +14,14 @@
     "isolatedModules": true,
     "noEmit": false,
     "declaration": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@pages/*": ["src/pages/*"],
+      "@types/*": ["src/types/*"]
+    }
   },
   "include": [
     "src/**/*"

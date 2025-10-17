@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '../types/mahjong'
-import MahjongTileComponent from '../components/MahjongTile'
+import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '@types/mahjong'
+import MahjongTileComponent from '@components/MahjongTile'
 
 type Suit = MahjongTileType['suit']
 type SimpleTile = { suit: Suit; value: number }
@@ -132,7 +132,7 @@ const canFormStandardWin = (tiles14: SimpleTile[]) => {
   return { win: false, allPungs: false }
 }
 
-const MahjongPage: React.FC = () => {
+const MahjongTingPage: React.FC = () => {
   const navigate = useNavigate()
   const [wall, setWall] = useState(createEmptyWall())
   const [selectedTiles, setSelectedTiles] = useState<MahjongTileType[]>([])
@@ -268,16 +268,16 @@ const MahjongPage: React.FC = () => {
 
   return (
     <div className="min-h-screen p-4 page-transition">
-      {/* 返回首页按钮 */}
+      {/* 返回麻将主页按钮 */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/mahjong')}
         className="mb-6 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg shadow-md transition-colors"
       >
-        ← 回到首页
+        ← 回到麻将主页
       </button>
 
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">麻将</h1>
+        <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">麻将听牌器</h1>
 
         {/* 牌墙区域 */}
         <div className="mb-12">
@@ -400,4 +400,4 @@ const MahjongPage: React.FC = () => {
   )
 }
 
-export default MahjongPage
+export default MahjongTingPage
