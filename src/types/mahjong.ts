@@ -10,6 +10,9 @@ export interface MahjongWall {
   tiles: (MahjongTile | null)[]
 }
 
+// 麻将模式类型
+export type MahjongMode = 'chengdu' | 'yaoji' | 'yitong'
+
 export const MAHJONG_TILES: MahjongTile[] = [
   // 万子 (Characters)
   { id: 'c1', suit: 'characters', value: 1, unicode: '🀇', name: '一万' },

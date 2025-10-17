@@ -1,299 +1,31 @@
-import React, { useMemo, useState } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '../../types/mahjong'
+import { MahjongTile, MAHJONG_TILES } from '../../types/mahjong'
 import MahjongTileComponent from '@components/MahjongTile'
-
-type Suit = MahjongTileType['suit']
-type SimpleTile = { suit: Suit; value: number }
-
-const keyOf = (t: SimpleTile | MahjongTileType) => `${t.suit}-${t.value}`
-
-const countMap = (tiles: SimpleTile[]) => {
-  const m = new Map<string, number>()
-  tiles.forEach(t => {
-    const k = keyOf(t)
-    m.set(k, (m.get(k) || 0) + 1)
-  })
-  return m
-}
-
-const suitsUsed = (tiles: SimpleTile[]) => {
-  const s = new Set<Suit>()
-  tiles.forEach(t => s.add(t.suit))
-  return s
-}
-
-// 七对/龙七对判断：所有牌能分成七对；四张算两对（龙七对）
-const isSevenPairs = (tiles14: SimpleTile[]) => {
-  if (tiles14.length !== 14) return false
-  const m = countMap(tiles14)
-  let pairs = 0
-  for (const c of m.values()) {
-    if (c === 2) pairs += 1
-    else if (c === 4) pairs += 2
-    else return false
-  }
-  return pairs === 7
-}
-
-// 标准胡（平胡/对对胡）：选一对将，剩余12张能分成4个面子（顺子或刻子）
-// 返回分类：allPungs=true 则对对胡；否则平胡
-const canFormStandardWin = (tiles14: SimpleTile[]) => {
-  if (tiles14.length !== 14) return { win: false, allPungs: false }
-  const bySuit: Record<Suit, number[]> = { characters: [], dots: [], bamboos: [] }
-  tiles14.forEach(t => bySuit[t.suit].push(t.value))
-  for (const s of Object.keys(bySuit) as Suit[]) bySuit[s].sort((a, b) => a - b)
-
-  // 尝试每种将（任意牌>=2）
-  const m = countMap(tiles14)
-  for (const [k, c] of m) {
-    if (c >= 2) {
-      // 移除一对作为将
-      const [suitStr, valStr] = k.split('-')
-      const suit = suitStr as Suit
-      const val = parseInt(valStr, 10)
-
-      const work: Record<Suit, number[]> = {
-        characters: [...bySuit.characters],
-        dots: [...bySuit.dots],
-        bamboos: [...bySuit.bamboos]
-      }
-
-      const idx1 = work[suit].indexOf(val)
-      if (idx1 === -1) continue
-      work[suit].splice(idx1, 1)
-      const idx2 = work[suit].indexOf(val)
-      if (idx2 === -1) continue
-      work[suit].splice(idx2, 1)
-
-      // 递归分面子：刻子或顺子
-      let allPungs = true
-
-      const consumeMelds = (arrs: Record<Suit, number[]>) => {
-        // 所有剩余共12张 => 4面子；递归消耗
-        const totalLen = arrs.characters.length + arrs.dots.length + arrs.bamboos.length
-        if (totalLen === 0) return true
-
-        // 找到第一个存在的牌
-        const pickSuit: Suit =
-          arrs.characters.length ? 'characters' :
-          arrs.dots.length ? 'dots' : 'bamboos'
-        const v = arrs[pickSuit][0]
-
-        // 尝试刻子
-        {
-          const idxA = arrs[pickSuit].indexOf(v)
-          const idxB = arrs[pickSuit].indexOf(v, idxA + 1)
-          const idxC = arrs[pickSuit].indexOf(v, idxB + 1)
-          if (idxA !== -1 && idxB !== -1 && idxC !== -1) {
-            const next: Record<Suit, number[]> = {
-              characters: [...arrs.characters],
-              dots: [...arrs.dots],
-              bamboos: [...arrs.bamboos]
-            }
-            // 删除三个相同值（按索引降序删除）
-            const delIdxs = [idxA, idxB, idxC].filter(i => Number.isInteger(i) && i >= 0).sort((a, b) => b - a)
-            delIdxs.forEach(i => next[pickSuit].splice(i, 1))
-            const ok = consumeMelds(next)
-            if (ok) return true
-          }
-        }
-
-        // 尝试顺子（同花色 v,v+1,v+2）
-        {
-          const v1 = v, v2 = v + 1, v3 = v + 2
-          const i1 = arrs[pickSuit].indexOf(v1)
-          const i2 = arrs[pickSuit].indexOf(v2)
-          const i3 = arrs[pickSuit].indexOf(v3)
-          if (i1 !== -1 && i2 !== -1 && i3 !== -1) {
-            const next: Record<Suit, number[]> = {
-              characters: [...arrs.characters],
-              dots: [...arrs.dots],
-              bamboos: [...arrs.bamboos]
-            }
-            // 顺子出现则不全是刻子
-            allPungs = false
-            // 删除三个值
-            const seqIdxs = [i1, i2, i3].filter(i => Number.isInteger(i) && i >= 0).sort((a, b) => b - a)
-            seqIdxs.forEach(i => next[pickSuit].splice(i, 1))
-            const ok = consumeMelds(next)
-            if (ok) return true
-          }
-        }
-
-        return false
-      }
-
-      const ok = consumeMelds(work)
-      if (ok) return { win: true, allPungs }
-    }
-  }
-
-  return { win: false, allPungs: false }
-}
+import { useMahjongTing } from '@hooks/useMahjongTing'
 
 const MahjongTingPage: React.FC = () => {
   const navigate = useNavigate()
-  const [wall, setWall] = useState(createEmptyWall())
-  const [selectedTiles, setSelectedTiles] = useState<MahjongTileType[]>([])
-  const [message, setMessage] = useState<string | null>(null)
+  
+  // 使用自定义Hook管理状态逻辑
+  const {
+    wall,
+    message,
+    tingCandidates,
+    isWallFull,
+    canAddMore,
+    finalResult,
+    addTileToWall,
+    removeTileFromWall,
+    clearWall,
+    getAdviceView,
+    canAddTile,
+    mode,
+    changeMode
+  } = useMahjongTing()
 
-  // 麻将牌排序函数：按照花色（万、筒、条）和牌面数字排序
-  const sortMahjongTiles = (tiles: MahjongTileType[]) => {
-    // 花色优先级：万子 > 筒子 > 条子
-    const suitOrder = { 'characters': 1, 'dots': 2, 'bamboos': 3 }
-    
-    return [...tiles].sort((a, b) => {
-      // 先按花色排序
-      if (suitOrder[a.suit] !== suitOrder[b.suit]) {
-        return suitOrder[a.suit] - suitOrder[b.suit]
-      }
-      // 同花色按牌面数字排序
-      return a.value - b.value
-    })
-  }
-
-  // 当前是否允许添加：整体容量、最多两个花色、单牌最多4张
-  const canAddTile = (tile: MahjongTileType) => {
-    if (selectedTiles.length >= 14) return false
-
-    // 单牌最多4张
-    const sameCount = selectedTiles.filter(t => keyOf(t) === keyOf(tile)).length
-    if (sameCount >= 4) return false
-
-    // 只允许两个花色
-    const suits = suitsUsed(selectedTiles.map(t => ({ suit: t.suit, value: t.value })))
-    if (suits.size >= 2 && !suits.has(tile.suit)) {
-      // 添加第三花色则禁止
-      return false
-    }
-    return true
-  }
-
-  const addTileToWall = (tile: MahjongTileType) => {
-    setMessage(null)
-    if (selectedTiles.length >= 14) return
-
-    // 限制：最多4张同牌 & 仅两个花色
-    const sameCount = selectedTiles.filter(t => keyOf(t) === keyOf(tile)).length
-    if (sameCount >= 4) {
-      setMessage('同一张牌最多只能添加4个')
-      return
-    }
-    const suits = suitsUsed(selectedTiles.map(t => ({ suit: t.suit, value: t.value })))
-    if (suits.size >= 2 && !suits.has(tile.suit)) {
-      setMessage('只能添加两个花色的牌')
-      return
-    }
-
-    // 添加到牌墙
-    const newWall = { ...wall }
-    const emptySlotIndex = newWall.tiles.findIndex(t => t === null)
-    if (emptySlotIndex !== -1) {
-      newWall.tiles[emptySlotIndex] = tile
-      setWall(newWall)
-      // 同步 selectedTiles 来自墙，并自动排序
-      const sortedTiles = sortMahjongTiles(newWall.tiles.filter(Boolean) as MahjongTileType[])
-      setSelectedTiles(sortedTiles)
-      
-      // 更新牌墙显示，按照排序后的顺序重新填充
-      const updatedWall = createEmptyWall()
-      sortedTiles.forEach((tile, index) => {
-        updatedWall.tiles[index] = tile
-      })
-      setWall(updatedWall)
-    }
-  }
-
-  const removeTileFromWall = (index: number) => {
-    const newWall = { ...wall }
-    newWall.tiles[index] = null
-    setWall(newWall)
-    // 移除后用墙重建 selectedTiles，避免按 id 误删全部同牌，并自动排序
-    const sortedTiles = sortMahjongTiles(newWall.tiles.filter(Boolean) as MahjongTileType[])
-    setSelectedTiles(sortedTiles)
-    
-    // 更新牌墙显示，按照排序后的顺序重新填充
-    const updatedWall = createEmptyWall()
-    sortedTiles.forEach((tile, index) => {
-      updatedWall.tiles[index] = tile
-    })
-    setWall(updatedWall)
-    setMessage(null)
-  }
-
-  const clearWall = () => {
-    setWall(createEmptyWall())
-    setSelectedTiles([])
-    setMessage(null)
-  }
-
-  const isWallFull = selectedTiles.length === 14
-  const canAddMore = selectedTiles.length < 14
-
-  // 计算听牌：对当前手牌（长度<=13），找出所有能补成胡的牌
-  const tingCandidates = useMemo(() => {
-    if (selectedTiles.length >= 14) return []
-    const base = selectedTiles.map(t => ({ suit: t.suit, value: t.value }))
-    const baseCounts = countMap(base)
-
-    // 已用花色集合（限制最多两个花色）
-    const usedSuits = suitsUsed(base)
-    return MAHJONG_TILES
-      .filter(tile => {
-        const k = keyOf(tile)
-        const cnt = baseCounts.get(k) || 0
-        if (cnt >= 4) return false
-        if (usedSuits.size >= 2 && !usedSuits.has(tile.suit)) return false
-        return true
-      })
-      .filter(tile => {
-        const test = [...base, { suit: tile.suit, value: tile.value }]
-        // 七对/龙七对
-        if (isSevenPairs(test)) return true
-        const std = canFormStandardWin(test)
-        return std.win
-      })
-      // 去重（同一张牌只保留一个）
-      .reduce((acc: MahjongTileType[], t) => {
-        if (!acc.find(x => keyOf(x) === keyOf(t))) acc.push(t)
-        return acc
-      }, [])
-  }, [selectedTiles])
-
-  // 满14张时判断胡牌及胡型
-  const finalResult = useMemo(() => {
-    if (!isWallFull) return null
-    const tiles = selectedTiles.map(t => ({ suit: t.suit, value: t.value }))
-    if (isSevenPairs(tiles)) {
-      // 判定是否龙七对（是否存在四张）
-      const cm = countMap(tiles)
-      const hasQuad = Array.from(cm.values()).some(c => c === 4)
-      return { type: hasQuad ? '龙七对' : '七对', win: true }
-    }
-    const std = canFormStandardWin(tiles)
-    if (std.win) {
-      return { type: std.allPungs ? '对对胡' : '平胡', win: true }
-    }
-    return { type: '未成胡', win: false }
-  }, [selectedTiles, isWallFull])
-
-  const adviceView = () => {
-    if (isWallFull) {
-      if (finalResult?.win) {
-        return { cls: 'bg-green-500', msg: `恭喜！胡牌类型：${finalResult.type}` }
-      }
-      return { cls: 'bg-red-500', msg: '未成胡，请调整手牌' }
-    } else {
-      if (selectedTiles.length === 0) return null
-      if (tingCandidates.length === 0) {
-        return { cls: 'bg-yellow-500', msg: '当前手牌没有听牌' }
-      }
-      return { cls: 'bg-blue-500', msg: `听牌（${tingCandidates.length}种）如下：` }
-    }
-  }
-
-  const advice = adviceView()
+  // 获取建议视图数据
+  const advice = getAdviceView()
 
   return (
     <div className="min-h-screen p-4 page-transition">
@@ -307,6 +39,47 @@ const MahjongTingPage: React.FC = () => {
 
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">麻将听牌器</h1>
+        
+        {/* 模式切换 */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-2 text-center">选择麻将模式</h3>
+            <div className="flex gap-4">
+              <button
+                onClick={() => changeMode('chengdu')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  mode === 'chengdu' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                成都麻将
+              </button>
+              <button
+                onClick={() => changeMode('yaoji')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  mode === 'yaoji' 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                幺鸡麻将
+              </button>
+              <button
+                onClick={() => changeMode('yitong')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  mode === 'yitong' 
+                    ? 'bg-orange-500 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                disabled
+                title="暂未开发"
+              >
+                一筒麻将
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* 牌墙区域 */}
         <div className="mb-12">
@@ -408,7 +181,9 @@ const MahjongTingPage: React.FC = () => {
               <h3 className="text-xl font-medium mb-3 text-green-600">条子</h3>
               <div className="grid grid-cols-9 gap-2">
                 {MAHJONG_TILES.filter(tile => tile.suit === 'bamboos').map(tile => {
-                  const disabled = !canAddTile(tile) || !canAddMore
+                  // 幺鸡模式下，幺鸡（一条）始终可选
+                  const isYaoji = mode === 'yaoji' && tile.suit === 'bamboos' && tile.value === 1
+                  const disabled = isYaoji ? !canAddMore : (!canAddTile(tile) || !canAddMore)
                   return (
                     <MahjongTileComponent
                       key={tile.id}
