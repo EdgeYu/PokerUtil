@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '@types/mahjong'
+import { MahjongTile as MahjongTileType, MAHJONG_TILES, createEmptyWall } from '../../types/mahjong'
 import MahjongTileComponent from '@components/MahjongTile'
 
 type Suit = MahjongTileType['suit']
@@ -138,6 +138,21 @@ const MahjongTingPage: React.FC = () => {
   const [selectedTiles, setSelectedTiles] = useState<MahjongTileType[]>([])
   const [message, setMessage] = useState<string | null>(null)
 
+  // 麻将牌排序函数：按照花色（万、筒、条）和牌面数字排序
+  const sortMahjongTiles = (tiles: MahjongTileType[]) => {
+    // 花色优先级：万子 > 筒子 > 条子
+    const suitOrder = { 'characters': 1, 'dots': 2, 'bamboos': 3 }
+    
+    return [...tiles].sort((a, b) => {
+      // 先按花色排序
+      if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+        return suitOrder[a.suit] - suitOrder[b.suit]
+      }
+      // 同花色按牌面数字排序
+      return a.value - b.value
+    })
+  }
+
   // 当前是否允许添加：整体容量、最多两个花色、单牌最多4张
   const canAddTile = (tile: MahjongTileType) => {
     if (selectedTiles.length >= 14) return false
@@ -177,9 +192,16 @@ const MahjongTingPage: React.FC = () => {
     if (emptySlotIndex !== -1) {
       newWall.tiles[emptySlotIndex] = tile
       setWall(newWall)
-      // 同步 selectedTiles 来自墙
-      const newSelected = newWall.tiles.filter(Boolean) as MahjongTileType[]
-      setSelectedTiles(newSelected)
+      // 同步 selectedTiles 来自墙，并自动排序
+      const sortedTiles = sortMahjongTiles(newWall.tiles.filter(Boolean) as MahjongTileType[])
+      setSelectedTiles(sortedTiles)
+      
+      // 更新牌墙显示，按照排序后的顺序重新填充
+      const updatedWall = createEmptyWall()
+      sortedTiles.forEach((tile, index) => {
+        updatedWall.tiles[index] = tile
+      })
+      setWall(updatedWall)
     }
   }
 
@@ -187,9 +209,16 @@ const MahjongTingPage: React.FC = () => {
     const newWall = { ...wall }
     newWall.tiles[index] = null
     setWall(newWall)
-    // 移除后用墙重建 selectedTiles，避免按 id 误删全部同牌
-    const newSelected = newWall.tiles.filter(Boolean) as MahjongTileType[]
-    setSelectedTiles(newSelected)
+    // 移除后用墙重建 selectedTiles，避免按 id 误删全部同牌，并自动排序
+    const sortedTiles = sortMahjongTiles(newWall.tiles.filter(Boolean) as MahjongTileType[])
+    setSelectedTiles(sortedTiles)
+    
+    // 更新牌墙显示，按照排序后的顺序重新填充
+    const updatedWall = createEmptyWall()
+    sortedTiles.forEach((tile, index) => {
+      updatedWall.tiles[index] = tile
+    })
+    setWall(updatedWall)
     setMessage(null)
   }
 
