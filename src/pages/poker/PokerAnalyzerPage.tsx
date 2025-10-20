@@ -983,7 +983,7 @@ const PokerAnalyzerPage: React.FC = () => {
                     {/* 右侧：牌张选择 */}
                     <div className="bg-white p-6 rounded-2xl shadow-lg">
                         <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
-                        <div className="grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                        <div className="grid grid-cols-5 gap-2">
                             {POKER_CARDS.map(card => (
                                 <button
                                     key={`${card.suit}-${card.rank}`}
