@@ -973,10 +973,10 @@ const PokerAnalyzerPage: React.FC = () => {
                         <div className="flex space-x-4">
                             <button
                                 onClick={analyzeHand}
-                                disabled={holeCards.length < 2}
-                                className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg shadow-md transition-colors"
+                                disabled={true}
+                                className="flex-1 bg-gray-400 text-white px-6 py-3 rounded-lg shadow-md cursor-not-allowed"
                             >
-                                分析牌型
+                                分析牌型（待开发）
                             </button>
                             <button
                                 onClick={clearAll}
