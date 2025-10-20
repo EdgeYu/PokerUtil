@@ -785,7 +785,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                         onClick={() => removeHoleCard(index)}
                                     >
                                         <div className={`
-                      w-14 h-18 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      w-16 h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
                       ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
                       flex flex-col items-center justify-center p-2 transition-all duration-200 hover:scale-105 active:scale-95
                     `}>
@@ -799,13 +799,48 @@ const PokerAnalyzerPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {Array.from({ length: 2 - holeCards.length }).map((_, index) => (
-                                    <div key={index} className="w-14 h-18 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                    <div key={index} className="w-16 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
                                         <span className="text-gray-400 text-xl">?</span>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* 牌型分析展示 */}
+                        </div>
+
+                        {/* 公牌区域 */}
+                        <div className="bg-white p-4 rounded-2xl shadow-lg">
+                            <h2 className="text-xl font-semibold mb-3 text-green-600">公牌 ({communityCards.length}/5)</h2>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {communityCards.map((card, index) => (
+                                    <div
+                                        key={index}
+                                        className="relative"
+                                        onClick={() => removeCommunityCard(index)}
+                                    >
+                                        <div className={`
+                      w-12 h-16 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
+                      flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 active:scale-95
+                    `}>
+                                            <div className={`text-sm font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                {card.display}
+                                            </div>
+                                            <div className={`text-lg ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                {card.suitSymbol}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {Array.from({ length: 5 - communityCards.length }).map((_, index) => (
+                                    <div key={index} className="w-12 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                        <span className="text-gray-400 text-lg">?</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {/* 牌型分析展示 */}
+                        <div className="bg-white p-4 rounded-2xl shadow-lg">
+                            <h2 className="text-xl font-semibold mb-3 text-amber-600">牌型分析展示</h2>
                             <div className="space-y-3 mt-3">
                                 {/* 手牌不全时的提示 */}
                                 {holeCards.length < 2 && (
@@ -922,39 +957,6 @@ const PokerAnalyzerPage: React.FC = () => {
                                 }
                             </div>
                         </div>
-
-                        {/* 公牌区域 */}
-                        <div className="bg-white p-4 rounded-2xl shadow-lg">
-                            <h2 className="text-xl font-semibold mb-3 text-green-600">公牌 ({communityCards.length}/5)</h2>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {communityCards.map((card, index) => (
-                                    <div
-                                        key={index}
-                                        className="relative"
-                                        onClick={() => removeCommunityCard(index)}
-                                    >
-                                        <div className={`
-                      w-12 h-16 bg-white rounded-lg shadow-md border-2 cursor-pointer
-                      ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
-                      flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 active:scale-95
-                    `}>
-                                            <div className={`text-sm font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                {card.display}
-                                            </div>
-                                            <div className={`text-lg ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                {card.suitSymbol}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {Array.from({ length: 5 - communityCards.length }).map((_, index) => (
-                                    <div key={index} className="w-12 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
-                                        <span className="text-gray-400 text-lg">?</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
                         {/* 控制按钮 */}
                         <div className="flex space-x-4">
                             <button

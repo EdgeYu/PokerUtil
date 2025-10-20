@@ -118,7 +118,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({
         </div>
         
         {/* 花色符号 */}
-        <div className={`text-xs font-semibold ${config.text} leading-none`}>
+        <div className={`text-xs font-semibold ${config.text} font-mono`}>
           {config.symbol}
         </div>
       </div>
