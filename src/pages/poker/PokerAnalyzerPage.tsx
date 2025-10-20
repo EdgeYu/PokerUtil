@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface PokerCard {
@@ -84,12 +84,20 @@ const PokerAnalyzerPage: React.FC = () => {
     const [futureBestHand, setFutureBestHand] = useState<string>('')
     const [futureBestHandCards, setFutureBestHandCards] = useState<PokerCard[]>([])
     const [currentWinRate, setCurrentWinRate] = useState<string>('0.0')
+    const [showFloatingPanel, setShowFloatingPanel] = useState<boolean>(true)
+    const cardSelectionRef = useRef<HTMLDivElement>(null)
+
+
+
+
 
     const addHoleCard = (card: PokerCard) => {
         if (holeCards.length < 2 && !isCardSelected(card)) {
             const newHoleCards = [...holeCards, card]
             setHoleCards(newHoleCards)
             calculateBestHand(newHoleCards, communityCards)
+            // 添加牌时展开悬浮窗
+            setShowFloatingPanel(true)
         }
     }
 
@@ -98,6 +106,8 @@ const PokerAnalyzerPage: React.FC = () => {
             const newCommunityCards = [...communityCards, card]
             setCommunityCards(newCommunityCards)
             calculateBestHand(holeCards, newCommunityCards)
+            // 添加牌时展开悬浮窗
+            setShowFloatingPanel(true)
         }
     }
 
@@ -983,7 +993,7 @@ const PokerAnalyzerPage: React.FC = () => {
                     </div>
 
                     {/* 右侧：牌张选择 */}
-                    <div className="bg-white p-6 rounded-2xl shadow-lg">
+                    <div ref={cardSelectionRef} className="bg-white p-6 rounded-2xl shadow-lg">
                         <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
                         <div className="grid grid-cols-5 gap-2">
                             {POKER_CARDS.map(card => (
@@ -1016,8 +1026,122 @@ const PokerAnalyzerPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
-    )
-}
 
+            {/* 悬浮窗 - 显示已选手牌和公牌 */}
+            <div className="fixed bottom-4 right-4 z-50">
+                {/* 收起状态的小按钮 */}
+                {!showFloatingPanel && (holeCards.length > 0 || communityCards.length > 0) && (
+                    <button
+                        onClick={() => setShowFloatingPanel(true)}
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-full shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105"
+                        title="展开悬浮窗"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                    </button>
+                )}
+
+                {/* 展开状态的悬浮窗 */}
+                {showFloatingPanel && (holeCards.length > 0 || communityCards.length > 0) && (
+                    <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-blue-300 max-w-xs">
+                        <div className="flex justify-between items-center mb-3 gap-2">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowFloatingPanel(false)}
+                                    className="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 transition-all transform hover:scale-110 p-2 rounded-full border border-blue-200"
+                                    title="收起悬浮窗"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M9 18l6-6-6-6"/>
+                                    </svg>
+                                </button>
+                                <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setHoleCards([]);
+                                    setCommunityCards([]);
+                                }}
+                                className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                            >
+                                清空
+                            </button>
+                        </div>
+
+                        {/* 手牌显示 */}
+                        {holeCards.length > 0 && (
+                            <div className="mb-3">
+                                <div className="text-xs text-gray-600 mb-1">手牌 ({holeCards.length}/2)</div>
+                                <div className="flex space-x-1">
+                                    {holeCards.map((card, index) => (
+                                        <div key={index} className="relative group">
+                                            <div className={`
+                                                w-8 h-10 bg-white rounded shadow-sm border
+                                                ${card.isRed ? 'border-red-300' : 'border-gray-300'}
+                                                flex flex-col items-center justify-center p-1 text-xs
+                                            `}>
+                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.display}
+                                                </div>
+                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.suitSymbol}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => removeHoleCard(index)}
+                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                title="移除这张牌"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 公牌显示 */}
+                        {communityCards.length > 0 && (
+                            <div>
+                                <div className="text-xs text-gray-600 mb-1">公牌 ({communityCards.length}/5)</div>
+                                <div className="flex flex-wrap gap-1">
+                                    {communityCards.map((card, index) => (
+                                        <div key={index} className="relative group">
+                                            <div className={`
+                                                w-8 h-10 bg-white rounded shadow-sm border
+                                                ${card.isRed ? 'border-red-300' : 'border-gray-300'}
+                                                flex flex-col items-center justify-center p-1 text-xs
+                                            `}>
+                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.display}
+                                                </div>
+                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.suitSymbol}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => removeCommunityCard(index)}
+                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                title="移除这张牌"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 胜率显示（如果可用） */}
+                        {holeCards.length === 2 && communityCards.length >= 3 && currentWinRate !== '0.0' && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="text-xs text-green-600 font-medium">当前胜率: {currentWinRate}%</div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>)
+}
 export default PokerAnalyzerPage
