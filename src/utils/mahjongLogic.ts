@@ -71,6 +71,16 @@ class MahjongArrayStorage {
     return indices
   }
   
+  // 获取指定索引的牌数量（替代直接访问data）
+  getCountByIndex(index: number): number {
+    return this.data[index]
+  }
+  
+  // 克隆数据数组（替代直接访问data）
+  cloneData(): number[] {
+    return [...this.data]
+  }
+  
   // 克隆存储
   clone(): MahjongArrayStorage {
     const cloned = new MahjongArrayStorage()
@@ -161,7 +171,7 @@ class ChengduMahjongStrategy implements MahjongStrategy {
     // 快速遍历所有可能的牌
     for (const tile of MAHJONG_TILES) {
       const tileIndex = getTileIndex(tile)
-      const currentCount = baseStorage.data[tileIndex]
+      const currentCount = baseStorage.getCountByIndex(tileIndex)
       
       // 检查牌数限制
       if (currentCount >= 4) continue
@@ -336,7 +346,7 @@ export const countMap = (tiles: SimpleTile[]) => {
   // 保持Map接口兼容性
   const m = new Map<string, number>()
   for (let i = 0; i < 30; i++) {
-    const count = storage.data[i]
+    const count = storage.getCountByIndex(i)
     if (count > 0) {
       const tile = indexToTile(i)
       m.set(keyOf(tile), count)
@@ -363,7 +373,7 @@ export const isSevenPairs = (tiles14: SimpleTile[]) => {
   const storage = MahjongArrayStorage.fromTiles(tiles14)
   let pairs = 0
   for (let i = 0; i < 30; i++) {
-    const count = storage.data[i]
+    const count = storage.getCountByIndex(i)
     if (count === 0) continue
     if (count === 2) pairs += 1
     else if (count === 4) pairs += 2
@@ -379,7 +389,7 @@ export const isAllPungs = (tiles14: SimpleTile[]) => {
   if (tiles14.length !== 14) return false
   
   const storage = MahjongArrayStorage.fromTiles(tiles14)
-  const data = storage.data
+  const data = storage.cloneData()
   
   // 对对胡必须满足：一对将 + 4个刻子
   let pairCount = 0
@@ -500,8 +510,8 @@ export const canFormStandardWin = (tiles14: SimpleTile[]) => {
   
   // 尝试每种将（任意牌>=2）
   for (let i = 0; i < 30; i++) {
-    if (storage.data[i] >= 2) {
-      const newData = [...storage.data]
+    if (storage.getCountByIndex(i) >= 2) {
+      const newData = storage.cloneData()
       newData[i] -= 2 // 移除一对将
       
       if (canFormMelds(newData, 12)) {
