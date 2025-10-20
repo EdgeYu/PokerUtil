@@ -143,6 +143,7 @@ const PokerAnalyzerPage: React.FC = () => {
             setBestHand('请先选择2张手牌')
             setCurrentBestHand('请先选择2张手牌')
             setFutureBestHand('')
+            setAnalysisResult('')
             return
         }
 
@@ -151,6 +152,7 @@ const PokerAnalyzerPage: React.FC = () => {
             setBestHand('等待更多公牌...')
             setCurrentBestHand('等待更多公牌...')
             setFutureBestHand('')
+            setAnalysisResult('')
             return
         }
 
@@ -992,7 +994,7 @@ const PokerAnalyzerPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* 右侧：牌张选择 */}
+                    {/* 牌张选择 */}
                     <div ref={cardSelectionRef} className="bg-white p-6 rounded-2xl shadow-lg">
                         <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
                         <div className="grid grid-cols-5 gap-2">
@@ -1037,7 +1039,7 @@ const PokerAnalyzerPage: React.FC = () => {
                         title="展开悬浮窗"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M15 18l-6-6 6-6"/>
+                            <path d="M15 18l-6-6 6-6" />
                         </svg>
                     </button>
                 )}
@@ -1053,7 +1055,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                     title="收起悬浮窗"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M9 18l6-6-6-6"/>
+                                        <path d="M9 18l6-6-6-6" />
                                     </svg>
                                 </button>
                                 <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
@@ -1072,8 +1074,15 @@ const PokerAnalyzerPage: React.FC = () => {
                         {/* 手牌显示 */}
                         {holeCards.length > 0 && (
                             <div className="mb-3">
-                                <div className="text-xs text-gray-600 mb-1">手牌 ({holeCards.length}/2)</div>
-                                <div className="flex space-x-1">
+                                <div className='flex space-x-4'>
+                                    <div className="text-xs text-gray-600 ">手牌 ({holeCards.length}/2)</div>
+                                    {/* 胜率显示（如果可用） */}
+                                    {holeCards.length === 2 && communityCards.length >= 3 && currentWinRate !== '0.0' && (
+                                        <div className="text-xs text-green-600 font-medium">胜率: {currentWinRate}%</div>
+                                    )}
+                                </div>
+
+                                <div className="flex space-x-1 mt-2">
                                     {holeCards.map((card, index) => (
                                         <div key={index} className="relative group">
                                             <div className={`
@@ -1088,9 +1097,10 @@ const PokerAnalyzerPage: React.FC = () => {
                                                     {card.suitSymbol}
                                                 </div>
                                             </div>
+
                                             <button
                                                 onClick={() => removeHoleCard(index)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition-opacity hover:bg-red-600"
                                                 title="移除这张牌"
                                             >
                                                 ×
@@ -1104,8 +1114,8 @@ const PokerAnalyzerPage: React.FC = () => {
                         {/* 公牌显示 */}
                         {communityCards.length > 0 && (
                             <div>
-                                <div className="text-xs text-gray-600 mb-1">公牌 ({communityCards.length}/5)</div>
-                                <div className="flex flex-wrap gap-1">
+                                <div className="text-xs text-gray-600 ">公牌 ({communityCards.length}/5)</div>
+                                <div className="flex flex-wrap gap-1 mt-2">
                                     {communityCards.map((card, index) => (
                                         <div key={index} className="relative group">
                                             <div className={`
@@ -1122,7 +1132,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                             </div>
                                             <button
                                                 onClick={() => removeCommunityCard(index)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition-opacity hover:bg-red-600"
                                                 title="移除这张牌"
                                             >
                                                 ×
@@ -1133,12 +1143,6 @@ const PokerAnalyzerPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* 胜率显示（如果可用） */}
-                        {holeCards.length === 2 && communityCards.length >= 3 && currentWinRate !== '0.0' && (
-                            <div className="mt-2 pt-2 border-t border-gray-200">
-                                <div className="text-xs text-green-600 font-medium">当前胜率: {currentWinRate}%</div>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
