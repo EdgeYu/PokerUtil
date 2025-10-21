@@ -85,6 +85,7 @@ const PokerAnalyzerPage: React.FC = () => {
     const [futureBestHandCards, setFutureBestHandCards] = useState<PokerCard[]>([])
     const [currentWinRate, setCurrentWinRate] = useState<string>('0.0')
     const [showFloatingPanel, setShowFloatingPanel] = useState<boolean>(true)
+    const [activeSuit, setActiveSuit] = useState<string>('spades') // 默认选中黑桃
     const cardSelectionRef = useRef<HTMLDivElement>(null)
 
 
@@ -775,20 +776,12 @@ const PokerAnalyzerPage: React.FC = () => {
             <div className="max-w-6xl mx-auto">
                 <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">牌型分析工具</h1>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* 左侧：手牌和公牌选择 */}
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {/* 手牌区域 */}
                         <div className="bg-white p-4 rounded-2xl shadow-lg">
-                            <div className="flex justify-between items-center mb-3">
-                                <h2 className="text-xl font-semibold text-blue-600">手牌 (2张)</h2>
-                                {/* 胜率显示 - 只在手牌完整且公牌足够时显示 */}
-                                {holeCards.length === 2 && communityCards.length >= 3 && currentBestHand && currentBestHand !== '等待更多公牌...' && (
-                                    <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
-                                        胜率: {currentWinRate}%
-                                    </div>
-                                )}
-                            </div>
+                            <h2 className="text-xl font-semibold text-blue-600 mb-3">手牌 ({holeCards.length}/2)</h2>
                             <div className="flex space-x-3 mb-4">
                                 {holeCards.map((card, index) => (
                                     <div
@@ -797,7 +790,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                         onClick={() => removeHoleCard(index)}
                                     >
                                         <div className={`
-                      w-16 h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      w-12 h-16 bg-white rounded-lg shadow-md border-2 cursor-pointer
                       ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
                       flex flex-col items-center justify-center p-2 transition-all duration-200 hover:scale-105 active:scale-95
                     `}>
@@ -811,7 +804,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {Array.from({ length: 2 - holeCards.length }).map((_, index) => (
-                                    <div key={index} className="w-16 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                    <div key={index} className=" w-12 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
                                         <span className="text-gray-400 text-xl">?</span>
                                     </div>
                                 ))}
@@ -850,182 +843,244 @@ const PokerAnalyzerPage: React.FC = () => {
                                 ))}
                             </div>
                         </div>
-                        {/* 牌型分析展示 */}
-                        <div className="bg-white p-4 rounded-2xl shadow-lg">
-                            <h2 className="text-xl font-semibold mb-3 text-amber-600">牌型分析展示</h2>
-                            <div className="space-y-3 mt-3">
-                                {/* 手牌不全时的提示 */}
-                                {holeCards.length < 2 && (
-                                    <div className="p-3 bg-yellow-50 rounded-lg">
-                                        <div className="text-sm text-yellow-700 font-medium">请先选择2张手牌</div>
-                                    </div>
-                                )}
 
-                                {/* 公牌不足时的提示 */}
-                                {holeCards.length === 2 && communityCards.length < 3 && (
-                                    <div className="p-3 bg-yellow-50 rounded-lg">
-                                        <div className="text-sm text-yellow-700 font-medium">等待更多公牌...</div>
-                                    </div>
-                                )}
+                    </div>
 
-                                {/* 当前最大牌型 - 只在手牌完整且公牌足够时显示 */}
-                                {holeCards.length === 2 && communityCards.length >= 3 && currentBestHand && currentBestHand !== '等待更多公牌...' && (
-                                    <div className="p-3 bg-green-50 rounded-lg">
-                                        <div className="text-sm text-green-700 font-medium mb-2">我的目前最大牌型: {currentBestHand}</div>
-                                        <div className="flex space-x-2">
-                                            {currentBestHandCards.map((card, index) => (
-                                                <div key={index} className={`
+                    {/* 牌张选择 - Tabs标签页形式 */}
+                    <div ref={cardSelectionRef} className="bg-white p-4 rounded-2xl shadow-lg">
+                        <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
+
+                        {/* 花色选择Tabs */}
+                        <div className="mb-4">
+                            <div className="flex space-x-1 bg-gradient-to-r from-gray-50 to-gray-100 p-1 rounded-lg border border-gray-200">
+                                {[
+                                    { suit: 'spades', symbol: '♠', name: '黑桃', color: 'text-gray-800', bgColor: 'bg-gray-800' },
+                                    { suit: 'hearts', symbol: '♥', name: '红心', color: 'text-red-600', bgColor: 'bg-red-600' },
+                                    { suit: 'clubs', symbol: '♣', name: '梅花', color: 'text-gray-800', bgColor: 'bg-gray-800' },
+                                    { suit: 'diamonds', symbol: '♦', name: '方块', color: 'text-red-600', bgColor: 'bg-red-600' }
+                                ].map((suitInfo) => (
+                                    <button
+                                        key={suitInfo.suit}
+                                        onClick={() => setActiveSuit(suitInfo.suit)}
+                                        className={`
+                                            flex-1 py-3 px-2 rounded-lg text-sm font-medium transition-all duration-300
+                                            ${activeSuit === suitInfo.suit
+                                                ? 'bg-white shadow-lg transform scale-105 border-2 border-purple-300'
+                                                : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                                            }
+                                            relative overflow-hidden
+                                        `}
+                                    >
+
+                                        <div className={`text-2xl font-bold ${suitInfo.color} mb-1`}>
+                                            {suitInfo.symbol}
+                                        </div>
+                                        <div className="text-xs font-semibold text-gray-700">{suitInfo.name}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 牌张选择网格 */}
+                        <div className="grid grid-cols-4 gap-2 min-h-[200px]">
+                            {POKER_CARDS
+                                .filter(card => card.suit === activeSuit)
+                                .map(card => (
+                                    <button
+                                        key={`${card.suit}-${card.rank}`}
+                                        onClick={() => {
+                                            if (holeCards.length < 2) {
+                                                addHoleCard(card)
+                                            } else if (communityCards.length < 5) {
+                                                addCommunityCard(card)
+                                            }
+                                        }}
+                                        disabled={isCardSelected(card)}
+                                        className={`
+                                            w-16 h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
+                                            ${card.isRed
+                                                ? 'border-red-200 hover:border-red-400 bg-gradient-to-br from-red-50 to-white'
+                                                : 'border-gray-200 hover:border-gray-400 bg-gradient-to-br from-gray-50 to-white'
+                                            }
+                                            ${isCardSelected(card)
+                                                ? 'opacity-40 cursor-not-allowed scale-95'
+                                                : 'hover:scale-105 active:scale-95 hover:shadow-lg'
+                                            }
+                                            flex flex-col items-center justify-center p-1 relative
+                                        `}
+                                    >
+                                        {/* 选中状态指示器 */}
+                                        {isCardSelected(card) && (
+                                            <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                                        )}
+                                        <div className={`text-base font-bold ${card.isRed ? 'text-red-700' : 'text-gray-800'}`}>
+                                            {card.display}
+                                        </div>
+                                        <div className={`text-lg ${card.isRed ? 'text-red-600' : 'text-gray-700'}`}>
+                                            {card.suitSymbol}
+                                        </div>
+                                    </button>
+                                ))
+                            }
+                        </div>
+
+                        {/* 快速操作按钮 */}
+                        <div className="flex justify-between mt-4 space-x-2">
+                            <button
+                                onClick={() => {
+                                    // 清空当前花色的已选牌张
+                                    const currentSuitCards = POKER_CARDS.filter(card => card.suit === activeSuit)
+                                    const newHoleCards = holeCards.filter(card => card.suit !== activeSuit)
+                                    const newCommunityCards = communityCards.filter(card => card.suit !== activeSuit)
+                                    setHoleCards(newHoleCards)
+                                    setCommunityCards(newCommunityCards)
+                                }}
+                                className="flex-1 py-2 px-3 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors duration-200"
+                            >
+                                清空当前花色
+                            </button>
+                            <button
+                                onClick={clearAll}
+                                className="flex-1 py-2 px-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors duration-200"
+                            >
+                                清空所有牌张
+                            </button>
+                        </div>
+                    </div>
+                    {/* 牌型分析展示 */}
+                    <div className="bg-white p-4 rounded-2xl shadow-lg">
+
+                        <div className="flex justify-between items-center mb-3">
+                            <h2 className="text-xl font-semibold text-amber-600">牌型分析展示</h2>
+                            {/* 胜率显示 - 只在手牌完整且公牌足够时显示 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && currentBestHand && currentBestHand !== '等待更多公牌...' && (
+                                <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
+                                    胜率: {currentWinRate}%
+                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-3 mt-3">
+                            {/* 手牌不全时的提示 */}
+                            {holeCards.length < 2 && (
+                                <div className="p-3 bg-yellow-50 rounded-lg">
+                                    <div className="text-sm text-yellow-700 font-medium">请先选择2张手牌</div>
+                                </div>
+                            )}
+
+                            {/* 公牌不足时的提示 */}
+                            {holeCards.length === 2 && communityCards.length < 3 && (
+                                <div className="p-3 bg-yellow-50 rounded-lg">
+                                    <div className="text-sm text-yellow-700 font-medium">等待更多公牌...</div>
+                                </div>
+                            )}
+
+                            {/* 当前最大牌型 - 只在手牌完整且公牌足够时显示 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && currentBestHand && currentBestHand !== '等待更多公牌...' && (
+                                <div className="p-3 bg-green-50 rounded-lg">
+                                    <div className="text-sm text-green-700 font-medium mb-2">我的目前最大牌型: {currentBestHand}</div>
+                                    <div className="flex space-x-2">
+                                        {currentBestHandCards.map((card, index) => (
+                                            <div key={index} className={`
                           w-10 h-12 bg-white rounded shadow-sm border-2
                           ${card.isRed ? 'border-red-300' : 'border-gray-300'}
                           flex flex-col items-center justify-center p-1 text-xs relative
                         `}>
-                                                    <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.display}
-                                                    </div>
-                                                    <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.suitSymbol}
-                                                    </div>
-                                                    {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
-                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
-                                                    )}
+                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.display}
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.suitSymbol}
+                                                </div>
+                                                {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
+                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
+                                </div>
+                            )}
 
-                                {/* 未来最大牌型 - 只在手牌完整、公牌未完全出现且有意义时显示 */}
-                                {holeCards.length === 2 && communityCards.length >= 3 && communityCards.length < 5 && futureBestHand && futureBestHand !== '所有公牌已出现，未来最大牌型无意义' && (
-                                    <div className="p-3 bg-purple-50 rounded-lg">
-                                        <div className="text-sm text-purple-700 font-medium mb-2">我未来的最大牌型: {futureBestHand}</div>
-                                        <div className="text-xs text-purple-500 mb-2">（考虑未出现的转牌{communityCards.length == 4 ? '' : '和河牌'}）</div>
-                                        <div className="flex space-x-2">
-                                            {futureBestHandCards.map((card, index) => (
-                                                <div key={index} className={`
+                            {/* 未来最大牌型 - 只在手牌完整、公牌未完全出现且有意义时显示 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && communityCards.length < 5 && futureBestHand && futureBestHand !== '所有公牌已出现，未来最大牌型无意义' && (
+                                <div className="p-3 bg-purple-50 rounded-lg">
+                                    <div className="text-sm text-purple-700 font-medium mb-2">我未来的最大牌型: {futureBestHand}</div>
+                                    <div className="text-xs text-purple-500 mb-2">（考虑未出现的转牌{communityCards.length == 4 ? '' : '和河牌'}）</div>
+                                    <div className="flex space-x-2">
+                                        {futureBestHandCards.map((card, index) => (
+                                            <div key={index} className={`
                                             w-10 h-12 bg-white rounded shadow-sm border-2
                                             ${card.isRed ? 'border-red-300' : 'border-gray-300'}
                                             flex flex-col items-center justify-center p-1 text-xs relative
                                             `}>
-                                                    <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.display}
-                                                    </div>
-                                                    <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.suitSymbol}
-                                                    </div>
-                                                    {![...holeCards, ...communityCards].some(selectedCard =>
-                                                        selectedCard.rank === card.rank && selectedCard.suit === card.suit
-                                                    ) && (
-                                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white"></div>
-                                                        )}
-                                                    {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
-                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
-                                                    )}
+                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.display}
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.suitSymbol}
+                                                </div>
+                                                {![...holeCards, ...communityCards].some(selectedCard =>
+                                                    selectedCard.rank === card.rank && selectedCard.suit === card.suit
+                                                ) && (
+                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white"></div>
+                                                    )}
+                                                {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
+                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
+                                </div>
+                            )}
 
-                                {/* 对手最大牌型组合 - 只在手牌完整且公牌足够时显示 */}
-                                {holeCards.length === 2 && communityCards.length >= 3 && bestHandCards.length > 0 && (
-                                    <div className="p-3 bg-blue-50 rounded-lg">
-                                        <div className="text-sm text-blue-700 font-medium mb-2">对手可能的最大牌型: {bestHand}</div>
-                                        <div className="flex space-x-2">
-                                            {bestHandCards.map((card, index) => (
-                                                <div key={index} className={`
+                            {/* 对手最大牌型组合 - 只在手牌完整且公牌足够时显示 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && bestHandCards.length > 0 && (
+                                <div className="p-3 bg-blue-50 rounded-lg">
+                                    <div className="text-sm text-blue-700 font-medium mb-2">对手可能的最大牌型: {bestHand}</div>
+                                    <div className="flex space-x-2">
+                                        {bestHandCards.map((card, index) => (
+                                            <div key={index} className={`
                           w-10 h-12 bg-white rounded shadow-sm border-2
                           ${card.isRed ? 'border-red-300' : 'border-gray-300'}
                           flex flex-col items-center justify-center p-1 text-xs relative
                         `}>
-                                                    <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.display}
-                                                    </div>
-                                                    <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                        {card.suitSymbol}
-                                                    </div>
-                                                    {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
-                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white" title="公牌"></div>
-                                                    )}
-                                                    {![...holeCards, ...communityCards].some(selectedCard =>
-                                                        selectedCard.rank === card.rank && selectedCard.suit === card.suit
-                                                    ) && (
-                                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white" title="未出现牌"></div>
-                                                        )}
+                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.display}
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                    {card.suitSymbol}
+                                                </div>
+                                                {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
+                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white" title="公牌"></div>
+                                                )}
+                                                {![...holeCards, ...communityCards].some(selectedCard =>
+                                                    selectedCard.rank === card.rank && selectedCard.suit === card.suit
+                                                ) && (
+                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white" title="未出现牌"></div>
+                                                    )}
+                                            </div>
+                                        ))}
                                     </div>
-                                )}{
-                                    <div className="text-xs text-gray-600 mt-2 flex items-center space-x-3">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
-                                            <span>公牌</span>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-orange-500 rounded-full mr-1"></div>
-                                            <span>未出现牌</span>
-                                        </div>
+                                </div>
+                            )}{
+                                <div className="text-xs text-gray-600 mt-2 flex items-center space-x-3">
+                                    <div className="flex items-center">
+                                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
+                                        <span>公牌</span>
                                     </div>
-                                }
-                            </div>
-                        </div>
-                        {/* 控制按钮 */}
-                        <div className="flex space-x-4">
-                            <button
-                                onClick={analyzeHand}
-                                disabled={true}
-                                className="flex-1 bg-gray-400 text-white px-6 py-3 rounded-lg shadow-md cursor-not-allowed"
-                            >
-                                分析牌型（待开发）
-                            </button>
-                            <button
-                                onClick={clearAll}
-                                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg shadow-md transition-colors"
-                            >
-                                清空
-                            </button>
-                        </div>
-
-                        {/* 分析结果 */}
-                        {analysisResult && (
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                                <p className="text-yellow-700 font-medium">{analysisResult}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* 牌张选择 */}
-                    <div ref={cardSelectionRef} className="bg-white p-6 rounded-2xl shadow-lg">
-                        <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
-                        <div className="grid grid-cols-5 gap-2">
-                            {POKER_CARDS.map(card => (
-                                <button
-                                    key={`${card.suit}-${card.rank}`}
-                                    onClick={() => {
-                                        if (holeCards.length < 2) {
-                                            addHoleCard(card)
-                                        } else if (communityCards.length < 5) {
-                                            addCommunityCard(card)
-                                        }
-                                    }}
-                                    disabled={isCardSelected(card)}
-                                    className={`
-                    w-12 h-16 bg-white rounded shadow-sm border-2 transition-all duration-200
-                    ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
-                    ${isCardSelected(card) ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}
-                    flex flex-col items-center justify-center p-1
-                  `}
-                                >
-                                    <div className={`text-sm font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                        {card.display}
+                                    <div className="flex items-center">
+                                        <div className="w-3 h-3 bg-orange-500 rounded-full mr-1"></div>
+                                        <span>未出现牌</span>
                                     </div>
-                                    <div className={`text-base ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                        {card.suitSymbol}
-                                    </div>
-                                </button>
-                            ))}
+                                </div>
+                            }
                         </div>
                     </div>
+                    {/* 分析结果 */}
+                    {analysisResult && (
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                            <p className="text-yellow-700 font-medium">{analysisResult}</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1061,10 +1116,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                 <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
                             </div>
                             <button
-                                onClick={() => {
-                                    setHoleCards([]);
-                                    setCommunityCards([]);
-                                }}
+                                onClick={clearAll}
                                 className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
                             >
                                 清空
@@ -1098,13 +1150,6 @@ const PokerAnalyzerPage: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={() => removeHoleCard(index)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                title="移除这张牌"
-                                            >
-                                                ×
-                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -1130,13 +1175,6 @@ const PokerAnalyzerPage: React.FC = () => {
                                                     {card.suitSymbol}
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => removeCommunityCard(index)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                title="移除这张牌"
-                                            >
-                                                ×
-                                            </button>
                                         </div>
                                     ))}
                                 </div>
