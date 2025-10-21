@@ -97,8 +97,6 @@ const PokerAnalyzerPage: React.FC = () => {
             const newHoleCards = [...holeCards, card]
             setHoleCards(newHoleCards)
             calculateBestHand(newHoleCards, communityCards)
-            // 添加牌时展开悬浮窗
-            setShowFloatingPanel(true)
         }
     }
 
@@ -107,8 +105,6 @@ const PokerAnalyzerPage: React.FC = () => {
             const newCommunityCards = [...communityCards, card]
             setCommunityCards(newCommunityCards)
             calculateBestHand(holeCards, newCommunityCards)
-            // 添加牌时展开悬浮窗
-            setShowFloatingPanel(true)
         }
     }
 
@@ -122,6 +118,21 @@ const PokerAnalyzerPage: React.FC = () => {
         const newCommunityCards = communityCards.filter((_, i) => i !== index)
         setCommunityCards(newCommunityCards)
         calculateBestHand(holeCards, newCommunityCards)
+    }
+
+    const removeCard = (card: PokerCard) => {
+        // 从holeCards中移除
+        const newHoleCards = holeCards.filter(
+            selectedCard => !(selectedCard.rank === card.rank && selectedCard.suit === card.suit)
+        )
+        // 从communityCards中移除
+        const newCommunityCards = communityCards.filter(
+            selectedCard => !(selectedCard.rank === card.rank && selectedCard.suit === card.suit)
+        )
+
+        setHoleCards(newHoleCards)
+        setCommunityCards(newCommunityCards)
+        calculateBestHand(newHoleCards, newCommunityCards)
     }
 
     const isCardSelected = (card: PokerCard) => {
@@ -781,8 +792,8 @@ const PokerAnalyzerPage: React.FC = () => {
                     <div className="space-y-4">
                         {/* 手牌区域 */}
                         <div className="bg-white p-4 rounded-2xl shadow-lg">
-                            <h2 className="text-xl font-semibold text-blue-600 mb-3">手牌 ({holeCards.length}/2)</h2>
-                            <div className="flex space-x-3 mb-4">
+                            <h2 className="text-sm font-semibold text-blue-600 mb-3">手牌 ({holeCards.length}/2)</h2>
+                            <div className="flex space-x-3 mb-2">
                                 {holeCards.map((card, index) => (
                                     <div
                                         key={index}
@@ -790,7 +801,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                         onClick={() => removeHoleCard(index)}
                                     >
                                         <div className={`
-                      w-12 h-16 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      w-16 h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
                       ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
                       flex flex-col items-center justify-center p-2 transition-all duration-200 hover:scale-105 active:scale-95
                     `}>
@@ -804,7 +815,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {Array.from({ length: 2 - holeCards.length }).map((_, index) => (
-                                    <div key={index} className=" w-12 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                    <div key={index} className=" w-16 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
                                         <span className="text-gray-400 text-xl">?</span>
                                     </div>
                                 ))}
@@ -814,8 +825,8 @@ const PokerAnalyzerPage: React.FC = () => {
 
                         {/* 公牌区域 */}
                         <div className="bg-white p-4 rounded-2xl shadow-lg">
-                            <h2 className="text-xl font-semibold mb-3 text-green-600">公牌 ({communityCards.length}/5)</h2>
-                            <div className="flex flex-wrap gap-2 mb-4">
+                            <h2 className="text-sm font-semibold mb-3 text-green-600">公牌 ({communityCards.length}/5)</h2>
+                            <div className="grid grid-cols-5 gap-2 ">
                                 {communityCards.map((card, index) => (
                                     <div
                                         key={index}
@@ -823,7 +834,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                         onClick={() => removeCommunityCard(index)}
                                     >
                                         <div className={`
-                      w-12 h-16 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      w-16 h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
                       ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
                       flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 active:scale-95
                     `}>
@@ -837,7 +848,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {Array.from({ length: 5 - communityCards.length }).map((_, index) => (
-                                    <div key={index} className="w-12 h-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                    <div key={index} className="w-16 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
                                         <span className="text-gray-400 text-lg">?</span>
                                     </div>
                                 ))}
@@ -848,10 +859,10 @@ const PokerAnalyzerPage: React.FC = () => {
 
                     {/* 牌张选择 - Tabs标签页形式 */}
                     <div ref={cardSelectionRef} className="bg-white p-4 rounded-2xl shadow-lg">
-                        <h2 className="text-2xl font-semibold mb-4 text-purple-600">选择牌张</h2>
+                        <h2 className="text-sm font-semibold mb-4 text-purple-600">选牌</h2>
 
                         {/* 花色选择Tabs */}
-                        <div className="mb-4">
+                        <div className="mb-2">
                             <div className="flex space-x-1 bg-gradient-to-r from-gray-50 to-gray-100 p-1 rounded-lg border border-gray-200">
                                 {[
                                     { suit: 'spades', symbol: '♠', name: '黑桃', color: 'text-gray-800', bgColor: 'bg-gray-800' },
@@ -882,20 +893,25 @@ const PokerAnalyzerPage: React.FC = () => {
                         </div>
 
                         {/* 牌张选择网格 */}
-                        <div className="grid grid-cols-4 gap-2 min-h-[200px]">
+                        <div className="grid grid-cols-5 gap-2 min-h-[200px]">
                             {POKER_CARDS
                                 .filter(card => card.suit === activeSuit)
                                 .map(card => (
                                     <button
                                         key={`${card.suit}-${card.rank}`}
                                         onClick={() => {
-                                            if (holeCards.length < 2) {
-                                                addHoleCard(card)
-                                            } else if (communityCards.length < 5) {
-                                                addCommunityCard(card)
+                                            // 如果牌已经被选中，则取消选择
+                                            if (isCardSelected(card)) {
+                                                removeCard(card)
+                                            } else {
+                                                // 否则根据当前选择阶段添加牌
+                                                if (holeCards.length < 2) {
+                                                    addHoleCard(card)
+                                                } else if (communityCards.length < 5) {
+                                                    addCommunityCard(card)
+                                                }
                                             }
                                         }}
-                                        disabled={isCardSelected(card)}
                                         className={`
                                             w-16 h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
                                             ${card.isRed
@@ -1141,7 +1157,9 @@ const PokerAnalyzerPage: React.FC = () => {
                                                 w-8 h-10 bg-white rounded shadow-sm border
                                                 ${card.isRed ? 'border-red-300' : 'border-gray-300'}
                                                 flex flex-col items-center justify-center p-1 text-xs
-                                            `}>
+                                            `}
+                                                onClick={() => removeHoleCard(index)}
+                                            >
                                                 <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
                                                     {card.display}
                                                 </div>
@@ -1167,7 +1185,9 @@ const PokerAnalyzerPage: React.FC = () => {
                                                 w-8 h-10 bg-white rounded shadow-sm border
                                                 ${card.isRed ? 'border-red-300' : 'border-gray-300'}
                                                 flex flex-col items-center justify-center p-1 text-xs
-                                            `}>
+                                            `}
+                                                onClick={() => removeCommunityCard(index)}
+                                            >
                                                 <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
                                                     {card.display}
                                                 </div>
