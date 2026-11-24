@@ -87,6 +87,14 @@ const POKER_CARDS: PokerCard[] = [
     { rank: '2', suit: 'diamonds', suitSymbol: '♦', isRed: true, value: 2, display: '2' }
 ]
 
+// 花色顺序固定：选牌 tab 与牌张滑动页共用，靠 index 对齐
+const SUITS = [
+    { suit: 'spades', symbol: '♠', name: '黑桃', color: 'text-gray-800', bgColor: 'bg-gray-800' },
+    { suit: 'hearts', symbol: '♥', name: '红心', color: 'text-red-600', bgColor: 'bg-red-600' },
+    { suit: 'clubs', symbol: '♣', name: '梅花', color: 'text-gray-800', bgColor: 'bg-gray-800' },
+    { suit: 'diamonds', symbol: '♦', name: '方块', color: 'text-red-600', bgColor: 'bg-red-600' }
+]
+
 const PokerAnalyzerPage: React.FC = () => {
     const navigate = useNavigate()
     const [holeCards, setHoleCards] = useState<PokerCard[]>([])
@@ -107,8 +115,16 @@ const PokerAnalyzerPage: React.FC = () => {
     const [nutsHand, setNutsHand] = useState<NutsHandInfo | null>(null)
     const [showFloatingPanel, setShowFloatingPanel] = useState<boolean>(true)
     const [activeSuit, setActiveSuit] = useState<string>('spades') // 默认选中黑桃
+    // 悬浮窗拖拽时的横向位移（null 表示未在拖拽）
+    const [panelDragX, setPanelDragX] = useState<number | null>(null)
     const cardSelectionRef = useRef<HTMLDivElement>(null)
     const suitTabsRef = useRef<HTMLDivElement>(null)
+    const cardPagerRef = useRef<HTMLDivElement>(null)
+    const activeSuitIndexRef = useRef(0)
+    const floatingDrawerRef = useRef<HTMLDivElement>(null)
+    const drawerDragRef = useRef<{ startX: number; startY: number; startTranslate: number; dragging: boolean } | null>(null)
+    const drawerDragXRef = useRef(0)
+    const lastDrawerDragAtRef = useRef(0)
 
     // 让当前选中的花色 tab 滚动到可视区中间（手机端 tab 可左右滑动）
     const scrollSuitTabIntoView = (target: HTMLButtonElement) => {
@@ -121,6 +137,98 @@ const PokerAnalyzerPage: React.FC = () => {
         const delta = (targetRect.left + targetRect.width / 2) - (containerRect.left + container.clientWidth / 2)
         container.scrollTo({ left: container.scrollLeft + delta, behavior: 'smooth' })
     }
+
+    // 切换花色：点击 tab 时把牌张区域翻到对应页，tab 与页面始终同步
+    const selectSuit = (index: number, tabElement?: HTMLButtonElement) => {
+        const suitInfo = SUITS[index]
+        if (!suitInfo) return
+        setActiveSuit(suitInfo.suit)
+        activeSuitIndexRef.current = index
+        const pager = cardPagerRef.current
+        if (pager) pager.scrollLeft = index * pager.clientWidth
+        if (tabElement) scrollSuitTabIntoView(tabElement)
+    }
+
+    // 牌张区域左右滑动后，按滑动位置同步当前花色和上方 tab
+    const handlePagerScroll = () => {
+        const pager = cardPagerRef.current
+        if (!pager || pager.clientWidth === 0) return
+        const index = Math.min(SUITS.length - 1, Math.max(0, Math.round(pager.scrollLeft / pager.clientWidth)))
+        if (index === activeSuitIndexRef.current) return
+        activeSuitIndexRef.current = index
+        setActiveSuit(SUITS[index].suit)
+
+        const container = suitTabsRef.current
+        if (!container) return
+        const tab = container.querySelector<HTMLButtonElement>(`button[data-suit="${SUITS[index].suit}"]`)
+        if (tab) scrollSuitTabIntoView(tab)
+    }
+
+    // 悬浮窗收起后的位移量：自身宽度 + 右侧外边距
+    const getDrawerClosedOffset = () => (floatingDrawerRef.current?.offsetWidth ?? 300) + 16
+
+    // 悬浮窗侧滑：向右滑收起，收起后向左滑展开
+    const handleDrawerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        drawerDragRef.current = {
+            startX: event.clientX,
+            startY: event.clientY,
+            startTranslate: showFloatingPanel ? 0 : getDrawerClosedOffset(),
+            dragging: false,
+        }
+    }
+
+    const handleDrawerPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = drawerDragRef.current
+        if (!drag) return
+        const dx = event.clientX - drag.startX
+        const dy = event.clientY - drag.startY
+        if (!drag.dragging) {
+            // 横向位移明显大于纵向才当作侧滑，避免影响页面纵向滚动和点击
+            if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return
+            drag.dragging = true
+            event.currentTarget.setPointerCapture?.(event.pointerId)
+        }
+        const closedOffset = getDrawerClosedOffset()
+        const next = Math.max(0, Math.min(closedOffset, drag.startTranslate + dx))
+        drawerDragXRef.current = next
+        setPanelDragX(next)
+    }
+
+    const finishDrawerDrag = (cancelled: boolean) => {
+        const drag = drawerDragRef.current
+        drawerDragRef.current = null
+        if (drag?.dragging) {
+            lastDrawerDragAtRef.current = Date.now()
+            if (!cancelled) {
+                // 滑过 40% 就切换状态，否则回弹
+                setShowFloatingPanel(drawerDragXRef.current < getDrawerClosedOffset() * 0.4)
+            }
+        }
+        setPanelDragX(null)
+    }
+
+    // 把手单击：刚侧滑完的短暂时间内忽略点击，避免滑动后又被点击反向切换
+    const toggleFloatingPanel = () => {
+        if (Date.now() - lastDrawerDragAtRef.current < 300) return
+        setShowFloatingPanel(!showFloatingPanel)
+    }
+
+    // 从「没有选牌」变成「有选牌」时自动展开悬浮窗，避免上次收起后新选牌看不到
+    const hasSelectedCards = holeCards.length > 0 || communityCards.length > 0
+    useEffect(() => {
+        if (hasSelectedCards) setShowFloatingPanel(true)
+    }, [hasSelectedCards])
+
+    // 转屏 / 改变窗口宽度后，牌张页宽会变，重新对齐到当前花色那一页
+    useEffect(() => {
+        const realignPager = () => {
+            const pager = cardPagerRef.current
+            if (!pager || pager.clientWidth === 0) return
+            pager.scrollLeft = activeSuitIndexRef.current * pager.clientWidth
+        }
+        window.addEventListener('resize', realignPager)
+        return () => window.removeEventListener('resize', realignPager)
+    }, [])
 
 
 
@@ -917,18 +1025,11 @@ const PokerAnalyzerPage: React.FC = () => {
                                 className="flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory bg-gradient-to-r from-gray-50 to-gray-100 p-1 rounded-lg border border-gray-200"
                                 style={{ WebkitOverflowScrolling: 'touch' }}
                             >
-                                {[
-                                    { suit: 'spades', symbol: '♠', name: '黑桃', color: 'text-gray-800', bgColor: 'bg-gray-800' },
-                                    { suit: 'hearts', symbol: '♥', name: '红心', color: 'text-red-600', bgColor: 'bg-red-600' },
-                                    { suit: 'clubs', symbol: '♣', name: '梅花', color: 'text-gray-800', bgColor: 'bg-gray-800' },
-                                    { suit: 'diamonds', symbol: '♦', name: '方块', color: 'text-red-600', bgColor: 'bg-red-600' }
-                                ].map((suitInfo) => (
+                                {SUITS.map((suitInfo, index) => (
                                     <button
                                         key={suitInfo.suit}
-                                        onClick={(event) => {
-                                            setActiveSuit(suitInfo.suit)
-                                            scrollSuitTabIntoView(event.currentTarget)
-                                        }}
+                                        data-suit={suitInfo.suit}
+                                        onClick={(event) => selectSuit(index, event.currentTarget)}
                                         className={`
                                             shrink-0 snap-start basis-[calc(25%-6px)] min-w-[84px] py-3 px-2 rounded-lg text-sm font-medium transition-all duration-300
                                             ${activeSuit === suitInfo.suit
@@ -948,52 +1049,63 @@ const PokerAnalyzerPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* 牌张选择网格 */}
-                        <div className="grid grid-cols-5 gap-2 min-h-[200px]">
-                            {POKER_CARDS
-                                .filter(card => card.suit === activeSuit)
-                                .map(card => (
-                                    <button
-                                        key={`${card.suit}-${card.rank}`}
-                                        onClick={() => {
-                                            // 如果牌已经被选中，则取消选择
-                                            if (isCardSelected(card)) {
-                                                removeCard(card)
-                                            } else {
-                                                // 否则根据当前选择阶段添加牌
-                                                if (holeCards.length < 2) {
-                                                    addHoleCard(card)
-                                                } else if (communityCards.length < 5) {
-                                                    addCommunityCard(card)
-                                                }
-                                            }
-                                        }}
-                                        className={`
-                                            w-full max-w-[64px] h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
-                                            ${card.isRed
-                                                ? 'border-red-200 hover:border-red-400 bg-gradient-to-br from-red-50 to-white'
-                                                : 'border-gray-200 hover:border-gray-400 bg-gradient-to-br from-gray-50 to-white'
-                                            }
-                                            ${isCardSelected(card)
-                                                ? 'opacity-40 cursor-not-allowed scale-95'
-                                                : 'hover:scale-105 active:scale-95 hover:shadow-lg'
-                                            }
-                                            flex flex-col items-center justify-center p-1 relative
-                                        `}
-                                    >
-                                        {/* 选中状态指示器 */}
-                                        {isCardSelected(card) && (
-                                            <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
-                                        )}
-                                        <div className={`text-base font-bold ${card.isRed ? 'text-red-700' : 'text-gray-800'}`}>
-                                            {card.display}
-                                        </div>
-                                        <div className={`text-lg ${card.isRed ? 'text-red-600' : 'text-gray-700'}`}>
-                                            {card.suitSymbol}
-                                        </div>
-                                    </button>
-                                ))
-                            }
+                        {/* 牌张选择区域 - 手机上左右滑动可直接切换花色 */}
+                        <div
+                            ref={cardPagerRef}
+                            onScroll={handlePagerScroll}
+                            className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory min-h-[200px]"
+                            style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
+                            {SUITS.map((suitInfo) => (
+                                <div key={suitInfo.suit} className="w-full shrink-0 snap-start">
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {POKER_CARDS
+                                            .filter(card => card.suit === suitInfo.suit)
+                                            .map(card => (
+                                                <button
+                                                    key={`${card.suit}-${card.rank}`}
+                                                    onClick={() => {
+                                                        // 如果牌已经被选中，则取消选择
+                                                        if (isCardSelected(card)) {
+                                                            removeCard(card)
+                                                        } else {
+                                                            // 否则根据当前选择阶段添加牌
+                                                            if (holeCards.length < 2) {
+                                                                addHoleCard(card)
+                                                            } else if (communityCards.length < 5) {
+                                                                addCommunityCard(card)
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`
+                                                        w-full max-w-[64px] h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
+                                                        ${card.isRed
+                                                            ? 'border-red-200 hover:border-red-400 bg-gradient-to-br from-red-50 to-white'
+                                                            : 'border-gray-200 hover:border-gray-400 bg-gradient-to-br from-gray-50 to-white'
+                                                        }
+                                                        ${isCardSelected(card)
+                                                            ? 'opacity-40 cursor-not-allowed scale-95'
+                                                            : 'hover:scale-105 active:scale-95 hover:shadow-lg'
+                                                        }
+                                                        flex flex-col items-center justify-center p-1 relative
+                                                    `}
+                                                >
+                                                    {/* 选中状态指示器 */}
+                                                    {isCardSelected(card) && (
+                                                        <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                                                    )}
+                                                    <div className={`text-base font-bold ${card.isRed ? 'text-red-700' : 'text-gray-800'}`}>
+                                                        {card.display}
+                                                    </div>
+                                                    <div className={`text-lg ${card.isRed ? 'text-red-600' : 'text-gray-700'}`}>
+                                                        {card.suitSymbol}
+                                                    </div>
+                                                </button>
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+                            ))}
                         </div>
 
                         {/* 快速操作按钮 */}
@@ -1224,110 +1336,115 @@ const PokerAnalyzerPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* 悬浮窗 - 显示已选手牌和公牌 */}
-            <div className="fixed bottom-4 right-4 z-50">
-                {/* 收起状态的小按钮 */}
-                {!showFloatingPanel && (holeCards.length > 0 || communityCards.length > 0) && (
-                    <button
-                        onClick={() => setShowFloatingPanel(true)}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-full shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105"
-                        title="展开悬浮窗"
+            {/* 悬浮窗 - 显示已选手牌和公牌，可从右侧滑入/滑出 */}
+            {(holeCards.length > 0 || communityCards.length > 0) && (
+                <div className="fixed bottom-4 right-4 z-50">
+                    <div
+                        ref={floatingDrawerRef}
+                        onPointerDown={handleDrawerPointerDown}
+                        onPointerMove={handleDrawerPointerMove}
+                        onPointerUp={() => finishDrawerDrag(false)}
+                        onPointerCancel={() => finishDrawerDrag(true)}
+                        className={`relative touch-pan-y transition-transform duration-300 ease-out ${showFloatingPanel ? 'translate-x-0' : 'translate-x-[calc(100%+16px)]'}`}
+                        style={panelDragX !== null ? { transform: `translateX(${panelDragX}px)`, transition: 'none' } : undefined}
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M15 18l-6-6 6-6" />
-                        </svg>
-                    </button>
-                )}
-
-                {/* 展开状态的悬浮窗 */}
-                {showFloatingPanel && (holeCards.length > 0 || communityCards.length > 0) && (
-                    <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-blue-300 max-w-xs">
-                        <div className="flex justify-between items-center mb-3 gap-2">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setShowFloatingPanel(false)}
-                                    className="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 transition-all transform hover:scale-110 p-2 rounded-full border border-blue-200"
-                                    title="收起悬浮窗"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M9 18l6-6-6-6" />
-                                    </svg>
-                                </button>
-                                <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
-                            </div>
-                            <button
-                                onClick={clearAll}
-                                className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                        {/* 侧边把手：单击或左右滑动都能展开/收起 */}
+                        <button
+                            onClick={toggleFloatingPanel}
+                            className="absolute -left-9 top-1/2 -translate-y-1/2 w-9 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-l-xl shadow-lg"
+                            title={showFloatingPanel ? '收起已选牌张' : '展开已选牌张'}
+                            aria-label={showFloatingPanel ? '收起已选牌张' : '展开已选牌张'}
+                        >
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className={`transition-transform duration-300 ${showFloatingPanel ? '' : 'rotate-180'}`}
                             >
-                                清空
-                            </button>
+                                <path d="M9 18l6-6-6-6" />
+                            </svg>
+                        </button>
+
+                        <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-blue-300 w-[300px] max-w-[85vw]">
+                            <div className="flex justify-between items-center mb-3 gap-2">
+                                <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
+                                <button
+                                    onClick={clearAll}
+                                    className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                                >
+                                    清空
+                                </button>
+                            </div>
+
+                            {/* 手牌显示 */}
+                            {holeCards.length > 0 && (
+                                <div className="mb-3">
+                                    <div className='flex space-x-4'>
+                                        <div className="text-xs text-gray-600 ">手牌 ({holeCards.length}/2)</div>
+                                        {/* 胜率显示（如果可用） */}
+                                        {holeCards.length === 2 && communityCards.length >= 3 && currentWinRate !== '0.0' && (
+                                            <div className="text-xs text-green-600 font-medium">胜率: {currentWinRate}%</div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex space-x-1 mt-2">
+                                        {holeCards.map((card, index) => (
+                                            <div key={index} className="relative group">
+                                                <div className={`
+                                                    w-8 h-10 bg-white rounded shadow-sm border
+                                                    ${card.isRed ? 'border-red-300' : 'border-gray-300'}
+                                                    flex flex-col items-center justify-center p-1 text-xs
+                                                `}
+                                                    onClick={() => removeHoleCard(index)}
+                                                >
+                                                    <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                        {card.display}
+                                                    </div>
+                                                    <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                        {card.suitSymbol}
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 公牌显示 */}
+                            {communityCards.length > 0 && (
+                                <div>
+                                    <div className="text-xs text-gray-600 ">公牌 ({communityCards.length}/5)</div>
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {communityCards.map((card, index) => (
+                                            <div key={index} className="relative group">
+                                                <div className={`
+                                                    w-8 h-10 bg-white rounded shadow-sm border
+                                                    ${card.isRed ? 'border-red-300' : 'border-gray-300'}
+                                                    flex flex-col items-center justify-center p-1 text-xs
+                                                `}
+                                                    onClick={() => removeCommunityCard(index)}
+                                                >
+                                                    <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                        {card.display}
+                                                    </div>
+                                                    <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                                                        {card.suitSymbol}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
-
-                        {/* 手牌显示 */}
-                        {holeCards.length > 0 && (
-                            <div className="mb-3">
-                                <div className='flex space-x-4'>
-                                    <div className="text-xs text-gray-600 ">手牌 ({holeCards.length}/2)</div>
-                                    {/* 胜率显示（如果可用） */}
-                                    {holeCards.length === 2 && communityCards.length >= 3 && currentWinRate !== '0.0' && (
-                                        <div className="text-xs text-green-600 font-medium">胜率: {currentWinRate}%</div>
-                                    )}
-                                </div>
-
-                                <div className="flex space-x-1 mt-2">
-                                    {holeCards.map((card, index) => (
-                                        <div key={index} className="relative group">
-                                            <div className={`
-                                                w-8 h-10 bg-white rounded shadow-sm border
-                                                ${card.isRed ? 'border-red-300' : 'border-gray-300'}
-                                                flex flex-col items-center justify-center p-1 text-xs
-                                            `}
-                                                onClick={() => removeHoleCard(index)}
-                                            >
-                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.display}
-                                                </div>
-                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.suitSymbol}
-                                                </div>
-                                            </div>
-
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 公牌显示 */}
-                        {communityCards.length > 0 && (
-                            <div>
-                                <div className="text-xs text-gray-600 ">公牌 ({communityCards.length}/5)</div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {communityCards.map((card, index) => (
-                                        <div key={index} className="relative group">
-                                            <div className={`
-                                                w-8 h-10 bg-white rounded shadow-sm border
-                                                ${card.isRed ? 'border-red-300' : 'border-gray-300'}
-                                                flex flex-col items-center justify-center p-1 text-xs
-                                            `}
-                                                onClick={() => removeCommunityCard(index)}
-                                            >
-                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.display}
-                                                </div>
-                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.suitSymbol}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>)
 }
 export default PokerAnalyzerPage
