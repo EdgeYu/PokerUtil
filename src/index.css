@@ -32,6 +32,16 @@
   user-select: none; /* 标准语法 */
 }
 
+/* 横向滑动容器：隐藏滚动条但保留滑动能力（手机端 tab/牌型列表） */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* 允许输入框和可编辑区域选择文本 */
 input, textarea, [contenteditable] {
   -webkit-user-select: text; /* Safari */

@@ -10,6 +10,21 @@ interface PokerCard {
     display: string
 }
 
+// 对手可能牌型统计：每种牌型的最强牌例、该牌型出现的对手手牌组合数
+interface OpponentHandTypeStat {
+    handType: string
+    bestCards: PokerCard[]
+    bestScore: number
+    count: number
+}
+
+// 坚果牌（Nuts）：当前牌面上理论最强的一手牌
+interface NutsHandInfo {
+    handType: string
+    cards: PokerCard[]
+    isMine: boolean
+}
+
 const POKER_CARDS: PokerCard[] = [
     // 黑桃 ♠
     { rank: 'A', suit: 'spades', suitSymbol: '♠', isRed: false, value: 14, display: 'A' },
@@ -84,9 +99,28 @@ const PokerAnalyzerPage: React.FC = () => {
     const [futureBestHand, setFutureBestHand] = useState<string>('')
     const [futureBestHandCards, setFutureBestHandCards] = useState<PokerCard[]>([])
     const [currentWinRate, setCurrentWinRate] = useState<string>('0.0')
+    const [opponentHandStats, setOpponentHandStats] = useState<OpponentHandTypeStat[]>([])
+    const [opponentHandTotal, setOpponentHandTotal] = useState<number>(0)
+    // 我的当前牌型分数，用于标记「对手哪些牌型能大过我」
+    const [myBestScore, setMyBestScore] = useState<number>(-1)
+    // 坚果牌（当前牌面理论最强的一手牌）
+    const [nutsHand, setNutsHand] = useState<NutsHandInfo | null>(null)
     const [showFloatingPanel, setShowFloatingPanel] = useState<boolean>(true)
     const [activeSuit, setActiveSuit] = useState<string>('spades') // 默认选中黑桃
     const cardSelectionRef = useRef<HTMLDivElement>(null)
+    const suitTabsRef = useRef<HTMLDivElement>(null)
+
+    // 让当前选中的花色 tab 滚动到可视区中间（手机端 tab 可左右滑动）
+    const scrollSuitTabIntoView = (target: HTMLButtonElement) => {
+        const container = suitTabsRef.current
+        if (!container) return
+
+        const containerRect = container.getBoundingClientRect()
+        const targetRect = target.getBoundingClientRect()
+        // 只改变 tab 容器自身的横向滚动位置，避免带动整页滚动
+        const delta = (targetRect.left + targetRect.width / 2) - (containerRect.left + container.clientWidth / 2)
+        container.scrollTo({ left: container.scrollLeft + delta, behavior: 'smooth' })
+    }
 
 
 
@@ -149,6 +183,10 @@ const PokerAnalyzerPage: React.FC = () => {
         setFutureBestHandCards([])
         setBestHand('')
         setBestHandCards([])
+        setOpponentHandStats([])
+        setOpponentHandTotal(0)
+        setMyBestScore(-1)
+        setNutsHand(null)
 
         // 检查手牌是否完整 - 手牌不全时不计算任何牌型
         if (holeCards.length < 2) {
@@ -190,11 +228,11 @@ const PokerAnalyzerPage: React.FC = () => {
         setCurrentBestHand(currentBestHandType)
         setCurrentBestHandCards(currentBestCards)
 
-        // 计算胜率：当前牌型在所有可能组合中的相对排名
-        const winRate = calculateCurrentWinRate(holeCards, communityCards, currentBestScore)
-        setCurrentWinRate(winRate)
+        // 一次遍历完成两件事：计算当前胜率 + 统计对手所有可能的牌型
+        const opponentAnalysis = analyzeOpponents(holeCards, communityCards, currentBestScore)
+        setCurrentWinRate(opponentAnalysis.winRate)
         setAnalysisResult(`当前最大牌型: ${currentBestHandType}
-胜率: ${winRate}%`)
+胜率: ${opponentAnalysis.winRate}%`)
 
         // 只有当公牌未完全出现时计算未来最大牌型
         if (communityCards.length < 5) {
@@ -253,65 +291,25 @@ const PokerAnalyzerPage: React.FC = () => {
             setFutureBestHandCards([])
         }
 
-        /**
-         * 计算对手可能的最大牌型（考虑对手手牌中的未出现牌）
-         * 
-         * 功能说明：
-         * 1. 从剩余牌堆中排除已出现的手牌和公牌
-         * 2. 遍历所有可能的对手手牌组合（C(n,2)）
-         * 3. 对每个对手手牌组合，计算其与公牌组成的最佳5张牌组合
-         * 4. 使用改进的同牌型比较逻辑（getDetailedHandScore）进行精确比较
-         * 5. 找出所有可能对手组合中的最强牌型
-         * 
-         * 算法流程：
-         * - 剩余牌堆 = 总牌堆 - 手牌 - 公牌
-         * - 对手手牌组合 = 从剩余牌堆中任选2张
-         * - 对手牌型 = 对手手牌 + 公牌 组成的最佳5张牌组合
-         * - 比较所有对手牌型，找出最强的一个
-         */
-        let bestHandType = ''
-        let bestHandCards: PokerCard[] = []
-        let bestScore = -1
+        // 展示对手所有可能的牌型（从强到弱），第一项即对手可能的最大牌型
+        setOpponentHandStats(opponentAnalysis.handTypes)
+        setOpponentHandTotal(opponentAnalysis.totalComboCount)
+        setMyBestScore(currentBestScore)
 
-        // 构建剩余牌堆：排除已出现的手牌和公牌
-        const remainingCards = POKER_CARDS.filter(card =>
-            !isCardSelected(card) &&
-            !holeCards.some(holeCard =>
-                holeCard.rank === card.rank && holeCard.suit === card.suit
-            ) &&
-            !communityCards.some(communityCard =>
-                communityCard.rank === card.rank && communityCard.suit === card.suit
-            )
-        )
-
-        // 遍历所有可能的对手手牌组合
-        for (let i = 0; i < remainingCards.length; i++) {
-            for (let j = i + 1; j < remainingCards.length; j++) {
-                const opponentHoleCards = [remainingCards[i], remainingCards[j]]
-                const allCards = [...communityCards, ...opponentHoleCards]
-
-                // 确保有足够的牌组成5张牌组合
-                if (allCards.length >= 5) {
-                    const combinations = getAllCombinations(allCards, 5)
-
-                    // 计算对手可能的最佳牌型
-                    combinations.forEach(combination => {
-                        const handType = calculateHandStrength(combination)
-                        const score = getDetailedHandScore(handType, combination)
-
-                        // 更新最佳牌型记录
-                        if (score > bestScore) {
-                            bestScore = score
-                            bestHandType = handType
-                            bestHandCards = combination
-                        }
-                    })
-                }
-            }
+        // 坚果牌（Nuts）：当前牌面上理论最强的一手牌
+        // 「公牌 + 任意 2 张牌」的全部组合 = 我的手牌这一组 + 对手的所有组合，
+        // 所以坚果牌就是「我的当前最佳」与「对手的最佳」中更强的那个
+        const opponentTop = opponentAnalysis.handTypes[0]
+        if (opponentTop && opponentTop.bestScore > currentBestScore) {
+            setNutsHand({ handType: opponentTop.handType, cards: opponentTop.bestCards, isMine: false })
+        } else {
+            setNutsHand({ handType: currentBestHandType, cards: currentBestCards, isMine: true })
         }
 
-        setBestHand(bestHandType)
-        setBestHandCards(bestHandCards)
+        if (opponentAnalysis.handTypes.length > 0) {
+            setBestHand(opponentAnalysis.handTypes[0].handType)
+            setBestHandCards(opponentAnalysis.handTypes[0].bestCards)
+        }
     }
 
     const clearAll = () => {
@@ -324,6 +322,11 @@ const PokerAnalyzerPage: React.FC = () => {
         setCurrentBestHandCards([])
         setFutureBestHand('')
         setFutureBestHandCards([])
+        setOpponentHandStats([])
+        setOpponentHandTotal(0)
+        setMyBestScore(-1)
+        setNutsHand(null)
+        setCurrentWinRate('0.0')
     }
 
     const getAllCombinations = (cards: PokerCard[], k: number): PokerCard[][] => {
@@ -594,55 +597,67 @@ const PokerAnalyzerPage: React.FC = () => {
         return { cards: bestHand, score: bestScore }
     }
 
-    // 计算当前牌型在所有可能组合中的胜率（简化版）
-    const calculateCurrentWinRate = (holeCards: PokerCard[], communityCards: PokerCard[], currentBestScore: number): string => {
-        // 排除已出现的手牌和公牌，得到剩余牌堆
+    /**
+     * 分析对手所有可能的牌型
+     *
+     * 算法流程：
+     * 1. 剩余牌堆 = 全部牌 - 我的手牌 - 已出现的公牌
+     * 2. 对手手牌 = 从剩余牌堆中任选 2 张（C(n,2) 种组合）
+     * 3. 每个对手手牌组合与公牌取最佳 5 张，得到该组合能组成的最强牌型
+     * 4. 按牌型分组统计：每种牌型保留最强的牌例，并记录该牌型出现的组合数
+     * 5. 同时统计我的当前牌型能赢下多少比例的对手组合（即胜率）
+     */
+    const analyzeOpponents = (holeCards: PokerCard[], communityCards: PokerCard[], currentBestScore: number) => {
+        const handTypeOrder = ['皇家同花顺', '同花顺', '四条', '葫芦', '同花', '顺子', '三条', '两对', '一对', '高牌']
+        const grouped = new Map<string, OpponentHandTypeStat>()
+        let totalComboCount = 0   // 对手手牌组合总数
+        let winCount = 0          // 我的当前牌型能赢的组合数
+
+        if (communityCards.length < 3) {
+            return { handTypes: [], totalComboCount: 0, winRate: '0.0' }
+        }
+
+        // 构建剩余牌堆：排除我的手牌和已出现的公牌
         const remainingCards = POKER_CARDS.filter(card =>
-            !isCardSelected(card) &&
-            !holeCards.some(holeCard =>
-                holeCard.rank === card.rank && holeCard.suit === card.suit
-            ) &&
-            !communityCards.some(communityCard =>
-                communityCard.rank === card.rank && communityCard.suit === card.suit
-            )
+            !holeCards.some(holeCard => holeCard.rank === card.rank && holeCard.suit === card.suit) &&
+            !communityCards.some(communityCard => communityCard.rank === card.rank && communityCard.suit === card.suit)
         )
 
-        let winCount = 0      // 当前牌型能赢的组合数
-        let totalPossibleHands = 0
-
-        // 计算所有可能的对手手牌组合
+        // 遍历所有可能的对手手牌组合
         for (let i = 0; i < remainingCards.length; i++) {
             for (let j = i + 1; j < remainingCards.length; j++) {
-                const opponentCards = [remainingCards[i], remainingCards[j]]
-                const allCards = [...communityCards, ...opponentCards]
+                const allCards = [...communityCards, remainingCards[i], remainingCards[j]]
+                if (allCards.length < 5) continue
 
-                if (allCards.length >= 5) {
-                    // 计算对手可能的最大牌型分数
-                    const combinations = getAllCombinations(allCards, 5)
-                    let opponentBestScore = -1
+                // 对手这个手牌组合能组成的最强牌型
+                const { cards: bestCards, score } = getBestHand(allCards)
+                if (bestCards.length === 0) continue
 
-                    combinations.forEach(combination => {
-                        const handType = calculateHandStrength(combination)
-                        const score = getDetailedHandScore(handType, combination)
-                        if (score > opponentBestScore) {
-                            opponentBestScore = score
-                        }
-                    })
+                const handType = calculateHandStrength(bestCards)
+                totalComboCount++
+                if (score < currentBestScore) winCount++
 
-                    // 比较当前牌型与对手牌型
-                    if (opponentBestScore < currentBestScore) {
-                        winCount++        // 当前牌型更强
+                const stat = grouped.get(handType)
+                if (stat) {
+                    stat.count++
+                    if (score > stat.bestScore) {
+                        stat.bestCards = bestCards
+                        stat.bestScore = score
                     }
-                    totalPossibleHands++
+                } else {
+                    grouped.set(handType, { handType, bestCards, bestScore: score, count: 1 })
                 }
             }
         }
 
-        if (totalPossibleHands === 0) return '100.0'
+        // 按牌型强弱从强到弱排序，只保留对手真的可能出现的牌型
+        const handTypes = handTypeOrder
+            .filter(handType => grouped.has(handType))
+            .map(handType => grouped.get(handType)!)
 
-        // 胜率公式：赢牌数 / 剩余牌总数
-        const winRate = (winCount / totalPossibleHands * 100).toFixed(1)
-        return winRate
+        const winRate = totalComboCount > 0 ? (winCount / totalComboCount * 100).toFixed(1) : '0.0'
+
+        return { handTypes, totalComboCount, winRate }
     }
 
 
@@ -764,7 +779,41 @@ const PokerAnalyzerPage: React.FC = () => {
         return Array.from(rankCounts.values()).some(count => count === 2)
     }
 
-
+    // 牌型分析展示用的牌张小卡片：圆点颜色区分 公牌 / 我的手牌 / 未出现牌
+    const renderMiniCards = (cards: PokerCard[]) => (
+        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+            {cards.map((card, index) => {
+                const isCommunityCard = communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit)
+                const isHoleCard = holeCards.some(hc => hc.rank === card.rank && hc.suit === card.suit)
+                return (
+                    <div
+                        key={`${card.suit}-${card.rank}-${index}`}
+                        className={`
+                            w-8 h-10 shrink-0 bg-white rounded shadow-sm border-2
+                            ${card.isRed ? 'border-red-300' : 'border-gray-300'}
+                            flex flex-col items-center justify-center text-[10px] relative
+                        `}
+                    >
+                        <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                            {card.display}
+                        </div>
+                        <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
+                            {card.suitSymbol}
+                        </div>
+                        {isCommunityCard && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white" title="公牌"></div>
+                        )}
+                        {!isCommunityCard && isHoleCard && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border border-white" title="我的手牌"></div>
+                        )}
+                        {!isCommunityCard && !isHoleCard && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white" title="未出现牌"></div>
+                        )}
+                    </div>
+                )
+            })}
+        </div>
+    )
 
     return (
         <div className="min-h-screen p-4 page-transition">
@@ -834,7 +883,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                         onClick={() => removeCommunityCard(index)}
                                     >
                                         <div className={`
-                      w-16 h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
+                      w-full max-w-[64px] h-20 bg-white rounded-lg shadow-md border-2 cursor-pointer
                       ${card.isRed ? 'border-red-300 hover:border-red-500' : 'border-gray-300 hover:border-gray-500'}
                       flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 active:scale-95
                     `}>
@@ -848,7 +897,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {Array.from({ length: 5 - communityCards.length }).map((_, index) => (
-                                    <div key={index} className="w-16 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
+                                    <div key={index} className="w-full max-w-[64px] h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50">
                                         <span className="text-gray-400 text-lg">?</span>
                                     </div>
                                 ))}
@@ -861,9 +910,13 @@ const PokerAnalyzerPage: React.FC = () => {
                     <div ref={cardSelectionRef} className="bg-white p-4 rounded-2xl shadow-lg">
                         <h2 className="text-sm font-semibold mb-4 text-purple-600">选牌</h2>
 
-                        {/* 花色选择Tabs */}
+                        {/* 花色选择Tabs - 手机上可左右滑动，选中后自动滚入可视区 */}
                         <div className="mb-2">
-                            <div className="flex space-x-1 bg-gradient-to-r from-gray-50 to-gray-100 p-1 rounded-lg border border-gray-200">
+                            <div
+                                ref={suitTabsRef}
+                                className="flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory bg-gradient-to-r from-gray-50 to-gray-100 p-1 rounded-lg border border-gray-200"
+                                style={{ WebkitOverflowScrolling: 'touch' }}
+                            >
                                 {[
                                     { suit: 'spades', symbol: '♠', name: '黑桃', color: 'text-gray-800', bgColor: 'bg-gray-800' },
                                     { suit: 'hearts', symbol: '♥', name: '红心', color: 'text-red-600', bgColor: 'bg-red-600' },
@@ -872,9 +925,12 @@ const PokerAnalyzerPage: React.FC = () => {
                                 ].map((suitInfo) => (
                                     <button
                                         key={suitInfo.suit}
-                                        onClick={() => setActiveSuit(suitInfo.suit)}
+                                        onClick={(event) => {
+                                            setActiveSuit(suitInfo.suit)
+                                            scrollSuitTabIntoView(event.currentTarget)
+                                        }}
                                         className={`
-                                            flex-1 py-3 px-2 rounded-lg text-sm font-medium transition-all duration-300
+                                            shrink-0 snap-start basis-[calc(25%-6px)] min-w-[84px] py-3 px-2 rounded-lg text-sm font-medium transition-all duration-300
                                             ${activeSuit === suitInfo.suit
                                                 ? 'bg-white shadow-lg transform scale-105 border-2 border-purple-300'
                                                 : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
@@ -913,7 +969,7 @@ const PokerAnalyzerPage: React.FC = () => {
                                             }
                                         }}
                                         className={`
-                                            w-16 h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
+                                            w-full max-w-[64px] h-20 bg-white rounded-lg shadow-md border-2 transition-all duration-300
                                             ${card.isRed
                                                 ? 'border-red-200 hover:border-red-400 bg-gradient-to-br from-red-50 to-white'
                                                 : 'border-gray-200 hover:border-gray-400 bg-gradient-to-br from-gray-50 to-white'
@@ -1048,47 +1104,115 @@ const PokerAnalyzerPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* 对手最大牌型组合 - 只在手牌完整且公牌足够时显示 */}
-                            {holeCards.length === 2 && communityCards.length >= 3 && bestHandCards.length > 0 && (
+                            {/* 坚果牌（Nuts） - 单独区域 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && nutsHand && (
+                                <div className={`p-3 rounded-lg border ${nutsHand.isMine ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}`}>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-sm font-semibold text-amber-700">🥜 坚果牌 (Nuts)</span>
+                                            <span className={`text-[10px] leading-4 px-1.5 rounded-full text-white ${nutsHand.isMine ? 'bg-emerald-600' : 'bg-amber-500'}`}>
+                                                {nutsHand.isMine ? '你已拿到' : '不在你手上'}
+                                            </span>
+                                        </div>
+                                        <div className="text-[11px] text-amber-600 shrink-0">当前牌面理论最强</div>
+                                    </div>
+                                    <div className="text-xs text-amber-700 mb-2">
+                                        最强牌型：{nutsHand.handType}
+                                        {nutsHand.isMine
+                                            ? '（就是你现在的牌，没人能大过你）'
+                                            : '（你的牌比它小，对手可能拿到）'}
+                                    </div>
+                                    {renderMiniCards(nutsHand.cards)}
+                                    <div className="mt-2 flex items-center space-x-3 text-[11px] text-gray-600">
+                                        <div className="flex items-center">
+                                            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full mr-1"></div>
+                                            <span>公牌</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-1"></div>
+                                            <span>我的手牌</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <div className="w-2.5 h-2.5 bg-orange-500 rounded-full mr-1"></div>
+                                            <span>未出现牌</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 对手所有可能的牌型 - 只在手牌完整且公牌足够时显示 */}
+                            {holeCards.length === 2 && communityCards.length >= 3 && opponentHandStats.length > 0 && (
                                 <div className="p-3 bg-blue-50 rounded-lg">
-                                    <div className="text-sm text-blue-700 font-medium mb-2">对手可能的最大牌型: {bestHand}</div>
-                                    <div className="flex space-x-2">
-                                        {bestHandCards.map((card, index) => (
-                                            <div key={index} className={`
-                          w-10 h-12 bg-white rounded shadow-sm border-2
-                          ${card.isRed ? 'border-red-300' : 'border-gray-300'}
-                          flex flex-col items-center justify-center p-1 text-xs relative
-                        `}>
-                                                <div className={`font-bold ${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.display}
+                                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-1">
+                                        <div className="text-sm text-blue-700 font-medium">
+                                            对手可能的牌型（{opponentHandStats.length} 种）
+                                        </div>
+                                        <div className="text-[11px] text-blue-500 shrink-0">
+                                            共 {opponentHandTotal} 种手牌组合
+                                        </div>
+                                    </div>
+                                    <div className="text-[11px] text-blue-500 mb-2">
+                                        最大牌型：{bestHand}；占比 = 该牌型在对手手牌组合中的比例
+                                        <span className="block mt-0.5 text-red-500">红色牌型 = 对手可能大过你</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {opponentHandStats.map((stat, index) => {
+                                            const percent = opponentHandTotal > 0 ? (stat.count / opponentHandTotal * 100) : 0
+                                            const isMax = index === 0
+                                            const beatsMe = myBestScore >= 0 && stat.bestScore > myBestScore
+                                            const tiesMe = myBestScore >= 0 && stat.bestScore === myBestScore
+                                            return (
+                                                <div
+                                                    key={stat.handType}
+                                                    className={`p-2 rounded-lg border ${beatsMe
+                                                        ? 'bg-red-50 border-red-300'
+                                                        : isMax
+                                                            ? 'bg-blue-100 border-blue-300'
+                                                            : 'bg-white/80 border-blue-100'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <span className={`text-xs font-semibold truncate ${beatsMe ? 'text-red-700' : isMax ? 'text-blue-800' : 'text-blue-700'}`}>
+                                                                {stat.handType}
+                                                            </span>
+                                                            {isMax && (
+                                                                <span className="text-[10px] leading-4 bg-blue-600 text-white px-1.5 rounded-full shrink-0">
+                                                                    最大
+                                                                </span>
+                                                            )}
+                                                            {beatsMe && (
+                                                                <span className="text-[10px] leading-4 bg-red-600 text-white px-1.5 rounded-full shrink-0">
+                                                                    大于我
+                                                                </span>
+                                                            )}
+                                                            {!beatsMe && tiesMe && (
+                                                                <span className="text-[10px] leading-4 bg-gray-400 text-white px-1.5 rounded-full shrink-0">
+                                                                    可打平
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className={`text-[11px] shrink-0 ${beatsMe ? 'text-red-500' : 'text-blue-500'}`}>
+                                                            占比 {percent.toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                    {renderMiniCards(stat.bestCards)}
                                                 </div>
-                                                <div className={`${card.isRed ? 'text-red-600' : 'text-black'}`}>
-                                                    {card.suitSymbol}
-                                                </div>
-                                                {communityCards.some(cc => cc.rank === card.rank && cc.suit === card.suit) && (
-                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white" title="公牌"></div>
-                                                )}
-                                                {![...holeCards, ...communityCards].some(selectedCard =>
-                                                    selectedCard.rank === card.rank && selectedCard.suit === card.suit
-                                                ) && (
-                                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white" title="未出现牌"></div>
-                                                    )}
-                                            </div>
-                                        ))}
+                                            )
+                                        })}
+                                    </div>
+                                    <div className="text-[11px] text-gray-600 mt-2 flex items-center space-x-3">
+                                        <div className="flex items-center">
+                                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
+                                            <span>公牌</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <div className="w-3 h-3 bg-orange-500 rounded-full mr-1"></div>
+                                            <span>未出现牌</span>
+                                        </div>
                                     </div>
                                 </div>
-                            )}{
-                                <div className="text-xs text-gray-600 mt-2 flex items-center space-x-3">
-                                    <div className="flex items-center">
-                                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
-                                        <span>公牌</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <div className="w-3 h-3 bg-orange-500 rounded-full mr-1"></div>
-                                        <span>未出现牌</span>
-                                    </div>
-                                </div>
-                            }
+                            )}
                         </div>
                     </div>
                     {/* 分析结果 */}
