@@ -1,7 +1,7 @@
 import React from 'react'
 
 export type CardSuit = 'spades' | 'hearts' | 'diamonds' | 'clubs'
-export type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'responsive'
+export type CardSize = 'xs' | 'sm' | 'mini' | 'md' | 'lg' | 'responsive'
 
 interface PlayingCardProps {
   rank: string
@@ -30,6 +30,12 @@ const SIZE_CLASSES: Record<CardSize, { box: string; corner: string; smallPip: st
     corner: 'text-[11px]',
     smallPip: 'text-[8px]',
     center: 'text-[19px]',
+  },
+  mini: {
+    box: 'h-[2.85rem] w-[1.88rem] rounded-[3px] sm:h-[3.25rem] sm:w-[2.15rem] sm:rounded',
+    corner: 'text-[10px] sm:text-[11px]',
+    smallPip: 'text-[7px] sm:text-[8px]',
+    center: 'text-[16px] sm:text-[19px]',
   },
   md: {
     box: 'h-[4.25rem] w-[2.8rem] rounded-md',
