@@ -22,17 +22,17 @@ const MahjongTile: React.FC<MahjongTileProps> = ({
       <div
         className={`
           aspect-[3/4] flex items-center justify-center rounded-lg
-          border-2 border-dashed border-gray-300
-          bg-gradient-to-br from-gray-50 to-gray-100
+          border-2 border-dashed border-white/15
+          bg-white/[0.03]
           shadow-inner
           ${size === 'small' ? 'text-xl' : size === 'medium' ? 'text-2xl' : 'text-4xl'}
-          ${variant === 'wall' ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}
+          ${variant === 'wall' ? 'cursor-pointer transition-colors hover:border-gold-400/40 hover:bg-white/[0.05]' : ''}
         `}
         onClick={onClick}
       >
         {/* 空牌位显示虚线 */}
         <div className="w-full h-full flex items-center justify-center">
-          <div className="w-3/4 h-3/4 border-2 border-dashed border-gray-300 rounded"></div>
+          <div className="w-3/4 h-3/4 border-2 border-dashed border-white/10 rounded"></div>
         </div>
       </div>
     )

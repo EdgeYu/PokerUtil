@@ -7,11 +7,13 @@ import PokerHandsPage from '@pages/poker/PokerHandsPage'
 import PokerOddsPage from '@pages/poker/PokerOddsPage'
 import PokerAnalyzerPage from '@pages/poker/PokerAnalyzerPage'
 import Footer from '@components/Footer'
+import SiteHeader from '@components/SiteHeader'
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+      <div className="app-bg flex min-h-screen flex-col">
+        <SiteHeader />
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<HomePage />} />

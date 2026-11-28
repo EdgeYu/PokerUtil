@@ -2,25 +2,138 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 
 @layer base {
   html {
-    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-felt-950 text-cream antialiased;
+    color-scheme: dark;
+  }
+
+  ::selection {
+    background: rgba(217, 180, 90, 0.3);
+    color: #fff8e6;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #04100b;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1b3a2b;
+    border-radius: 999px;
+    border: 2px solid #04100b;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a5440;
   }
 }
 
 @layer components {
+  /* 全局牌桌底色：绒面绿 + 顶部金光 + 细织纹 */
+  .app-bg {
+    background-color: #04100b;
+    background-image:
+      radial-gradient(1100px 520px at 50% -8%, rgba(217, 180, 90, 0.14), transparent 62%),
+      radial-gradient(900px 640px at 84% 6%, rgba(24, 70, 50, 0.55), transparent 65%),
+      radial-gradient(760px 560px at 6% 16%, rgba(18, 54, 40, 0.6), transparent 68%),
+      repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
+      linear-gradient(180deg, #071811 0%, #05130e 42%, #030c08 100%);
+    background-attachment: fixed;
+  }
+
   .page-transition {
     animation: fadeIn 0.5s ease-in-out;
   }
-  
+
   .card-hover {
     transition: all 0.3s ease;
   }
-  
+
   .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 24px 50px -24px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(217, 180, 90, 0.35);
+  }
+
+  /* 深色玻璃面板 */
+  .ui-panel {
+    @apply relative rounded-2xl border border-gold-500/20;
+    background-image: linear-gradient(180deg, rgba(16, 42, 31, 0.82), rgba(6, 20, 14, 0.92));
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(245, 234, 210, 0.05);
+    backdrop-filter: blur(6px);
+  }
+
+  .ui-panel-soft {
+    @apply rounded-xl border border-white/[0.06] bg-white/[0.025];
+  }
+
+  /* 金色渐变文字 */
+  .gold-text {
+    background-image: linear-gradient(180deg, #fdf6e3 0%, #efd79f 42%, #d9b45a 72%, #b98f3b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gold-rule {
+    height: 1px;
+    background-image: linear-gradient(90deg, transparent, rgba(217, 180, 90, 0.55), transparent);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-gold-500/30 bg-white/[0.03] px-4 py-2 text-sm text-cream transition-all duration-200;
+  }
+
+  .btn-ghost:hover {
+    @apply border-gold-400/60 bg-gold-400/10 text-gold-100;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-gold-200 to-gold-500 px-4 py-2 text-sm font-semibold text-felt-950 transition-all duration-200;
+    box-shadow: 0 10px 24px -12px rgba(217, 180, 90, 0.75);
+  }
+
+  .btn-gold:hover {
+    @apply from-gold-100 to-gold-400;
+    box-shadow: 0 14px 28px -12px rgba(217, 180, 90, 0.9);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition-colors;
+  }
+
+  .btn-danger:hover {
+    @apply border-red-400/50 bg-red-500/20 text-red-100;
+  }
+
+  .feature-card {
+    @apply relative overflow-hidden rounded-2xl border border-gold-500/15 bg-gradient-to-br from-felt-700/80 via-felt-800/90 to-felt-900/95 p-6 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-felt-950;
+    box-shadow: 0 24px 50px -30px rgba(0, 0, 0, 0.9);
+  }
+
+  .feature-card:hover {
+    @apply border-gold-400/40;
+    transform: translateY(-3px);
+    box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(217, 180, 90, 0.25);
+  }
+
+  .nav-pill {
+    @apply relative whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] tracking-wide transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/70 sm:px-3;
   }
 }
 

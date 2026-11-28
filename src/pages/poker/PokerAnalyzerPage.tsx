@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import PageHeading from '@components/PageHeading'
 
 interface PokerCard {
     rank: string
@@ -96,7 +96,6 @@ const SUITS = [
 ]
 
 const PokerAnalyzerPage: React.FC = () => {
-    const navigate = useNavigate()
     const [holeCards, setHoleCards] = useState<PokerCard[]>([])
     const [communityCards, setCommunityCards] = useState<PokerCard[]>([])
     const [analysisResult, setAnalysisResult] = useState<string>('')
@@ -924,31 +923,20 @@ const PokerAnalyzerPage: React.FC = () => {
     )
 
     return (
-        <div className="min-h-screen p-4 page-transition">
-            {/* 返回按钮 */}
-            <div className="flex space-x-4 mb-6">
-                <button
-                    onClick={() => navigate('/')}
-                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg shadow-md transition-colors"
-                >
-                    ← 回到首页
-                </button>
-                <button
-                    onClick={() => navigate('/poker')}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-colors"
-                >
-                    ← 返回扑克主页
-                </button>
-            </div>
-
-            <div className="max-w-6xl mx-auto">
-                <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">牌型分析工具</h1>
+        <div className="page-transition pb-16">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 md:pt-14">
+                <PageHeading
+                    eyebrow="HAND ANALYZER"
+                    title="牌型分析工具"
+                    subtitle="选择 2 张手牌与 3–5 张公牌，实时查看当前最佳牌型、未来可能牌型、对手范围与胜率。"
+                    className="pb-8 md:pb-10"
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* 左侧：手牌和公牌选择 */}
                     <div className="space-y-4">
                         {/* 手牌区域 */}
-                        <div className="bg-white p-4 rounded-2xl shadow-lg">
+                        <div className="bg-[#fbf7ec] p-4 rounded-2xl shadow-panel ring-1 ring-gold-500/20">
                             <h2 className="text-sm font-semibold text-blue-600 mb-3">手牌 ({holeCards.length}/2)</h2>
                             <div className="flex space-x-3 mb-2">
                                 {holeCards.map((card, index) => (
@@ -981,7 +969,7 @@ const PokerAnalyzerPage: React.FC = () => {
                         </div>
 
                         {/* 公牌区域 */}
-                        <div className="bg-white p-4 rounded-2xl shadow-lg">
+                        <div className="bg-[#fbf7ec] p-4 rounded-2xl shadow-panel ring-1 ring-gold-500/20">
                             <h2 className="text-sm font-semibold mb-3 text-green-600">公牌 ({communityCards.length}/5)</h2>
                             <div className="grid grid-cols-5 gap-2 ">
                                 {communityCards.map((card, index) => (
@@ -1015,7 +1003,7 @@ const PokerAnalyzerPage: React.FC = () => {
                     </div>
 
                     {/* 牌张选择 - Tabs标签页形式 */}
-                    <div ref={cardSelectionRef} className="bg-white p-4 rounded-2xl shadow-lg">
+                    <div ref={cardSelectionRef} className="bg-[#fbf7ec] p-4 rounded-2xl shadow-panel ring-1 ring-gold-500/20">
                         <h2 className="text-sm font-semibold mb-4 text-purple-600">选牌</h2>
 
                         {/* 花色选择Tabs - 手机上可左右滑动，选中后自动滚入可视区 */}
@@ -1132,7 +1120,7 @@ const PokerAnalyzerPage: React.FC = () => {
                         </div>
                     </div>
                     {/* 牌型分析展示 */}
-                    <div className="bg-white p-4 rounded-2xl shadow-lg">
+                    <div className="bg-[#fbf7ec] p-4 rounded-2xl shadow-panel ring-1 ring-gold-500/20">
 
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-xl font-semibold text-amber-600">牌型分析展示</h2>
@@ -1351,7 +1339,7 @@ const PokerAnalyzerPage: React.FC = () => {
                         {/* 侧边把手：单击或左右滑动都能展开/收起 */}
                         <button
                             onClick={toggleFloatingPanel}
-                            className="absolute -left-9 top-1/2 -translate-y-1/2 w-9 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-l-xl shadow-lg"
+                            className="absolute -left-9 top-1/2 -translate-y-1/2 w-9 h-16 flex items-center justify-center bg-gradient-to-r from-gold-300 to-gold-500 text-felt-950 rounded-l-xl shadow-lg"
                             title={showFloatingPanel ? '收起已选牌张' : '展开已选牌张'}
                             aria-label={showFloatingPanel ? '收起已选牌张' : '展开已选牌张'}
                         >
@@ -1368,7 +1356,7 @@ const PokerAnalyzerPage: React.FC = () => {
                             </svg>
                         </button>
 
-                        <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-blue-300 w-[300px] max-w-[85vw]">
+                        <div className="bg-[#fbf7ec] p-4 rounded-2xl shadow-panel border-2 border-gold-400/50 w-[300px] max-w-[85vw]">
                             <div className="flex justify-between items-center mb-3 gap-2">
                                 <h3 className="text-sm font-semibold text-blue-600">已选牌张</h3>
                                 <button
